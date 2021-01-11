@@ -12,7 +12,7 @@
 #include <vector>
 #include <arrow/type.h>
 
-#define TEMP_ACCESSIBLE_UNSAFEROW_BUFFER_SIZE 1024
+#define TEMP_ACCESSIBLE_UNSAFEROW_BUFFER_SIZE 128
 #define FIXED_UNSAFEROW_NUMERIC_SIZE 8
 
 /* Accessible Unsafe Row Layout
