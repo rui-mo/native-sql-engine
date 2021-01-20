@@ -1644,6 +1644,9 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     }
     if (key_projector_) {
       int projected_col_num = projected_field_list_.size();
+      for (int i = 0; i < projected_col_num; i++) {
+        null_total_list_.push_back(0);
+      }
       if (projected_.size() <= projected_col_num) {
         projected_.resize(projected_col_num + 1);
       }
@@ -1655,7 +1658,15 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
           key_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &projected_batch));
       for (int i = 0; i < projected_col_num; i++) {
         std::shared_ptr<arrow::Array> col = projected_batch[i];
+        null_total_list_[i] += col->null_count();
         projected_[i].push_back(col);
+      }
+    } else {
+      for (int i = 0; i < col_num_; i++) {
+        null_total_list_.push_back(0);
+      }
+      for (int i = 0; i < col_num_; i++) {
+        null_total_list_[i] += in[i]->null_count();
       }
     }
     items_total_ += in[0]->length();
@@ -1664,15 +1675,12 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
   }
 
   int compareInternal(int left_array_id, int64_t left_id, int right_array_id, 
-                      int64_t right_id, const CompareFunction& cmpFunc) {
+                      int64_t right_id, int keys_num, const CompareFunction& cmpFunc) {
     int key_idx = 0;
-    int keys_num = sort_directions_.size();
     while (key_idx < keys_num) {
-      bool asc = sort_directions_[key_idx];
-      bool nulls_first = nulls_order_[key_idx];
       int cmp_res = 2;
-      cmp_functions_[key_idx](cmpFunc, asc, nulls_first, key_idx, left_array_id, 
-                              right_array_id, left_id, right_id, cmp_res);
+      cmp_functions_[key_idx](cmpFunc, key_idx, left_array_id, right_array_id, 
+                              left_id, right_id, cmp_res);
       if (cmp_res != 2) {
         return cmp_res;
       }
@@ -1682,8 +1690,9 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
   }
 
   bool compareRow(int left_array_id, int64_t left_id, int right_array_id, 
-                  int64_t right_id, const CompareFunction& cmpFunc) {
-    if (compareInternal(left_array_id, left_id, right_array_id, right_id, cmpFunc) == 1) {
+                  int64_t right_id, int keys_num, const CompareFunction& cmpFunc) {
+    if (compareInternal(left_array_id, left_id, right_array_id, 
+                        right_id, keys_num, cmpFunc) == 1) {
       return true;
     }
     return false;
@@ -1691,8 +1700,9 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
 
   auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end, 
             const CompareFunction& cmpFunc) {
-    auto comp = [this, &cmpFunc](ArrayItemIndexS x, ArrayItemIndexS y) {
-        return compareRow(x.array_id, x.id, y.array_id, y.id, cmpFunc);};
+    int keys_num = sort_directions_.size();
+    auto comp = [this, &cmpFunc, &keys_num](ArrayItemIndexS x, ArrayItemIndexS y) {
+        return compareRow(x.array_id, x.id, y.array_id, y.id, keys_num, cmpFunc);};
     gfx::timsort(indices_begin, indices_begin + items_total_, comp);
   }
 
@@ -1720,16 +1730,22 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     // do partition and sort here
     Partition(indices_begin, indices_end);
     if (key_projector_) {
-      GenCmpFunction(projected_field_list_, cmp_functions_);
       std::vector<int> projected_key_idx_list;
       for (int i = 0; i < projected_field_list_.size(); i++) {
         projected_key_idx_list.push_back(i);
       }
-      CompareFunction cmpFunc(projected_, projected_field_list_, projected_key_idx_list);
+      GenCmpFunction(
+          projected_field_list_, sort_directions_, nulls_order_,
+          null_total_list_, cmp_functions_);
+      CompareFunction cmpFunc(
+          projected_, projected_field_list_, projected_key_idx_list);
       Sort(indices_begin, indices_end, cmpFunc);
     } else {
-      GenCmpFunction(key_field_list_, cmp_functions_);
-      CompareFunction cmpFunc(cached_, key_field_list_, key_index_list_);
+      GenCmpFunction(
+         key_field_list_, sort_directions_, nulls_order_, 
+         null_total_list_, cmp_functions_);
+      CompareFunction cmpFunc(
+          cached_, key_field_list_, key_index_list_);
       Sort(indices_begin, indices_end, cmpFunc);
     }
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
@@ -1764,8 +1780,9 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
   uint64_t num_batches_ = 0;
   uint64_t items_total_ = 0;
   int col_num_;
-  std::vector<std::function<void(const CompareFunction&, bool, bool, int, int, int, 
-                                 int64_t, int64_t, int&)>> cmp_functions_;                             
+  std::vector<uint64_t> null_total_list_;
+  std::vector<std::function<void(const CompareFunction&, int, int, int, int64_t, 
+                                 int64_t, int&)>> cmp_functions_;                             
 
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
