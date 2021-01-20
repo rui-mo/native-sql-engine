@@ -43,6 +43,7 @@
 #include "third_party/ska_sort.hpp"
 #include "third_party/timsort.hpp"
 #include "utils/macros.h"
+#include <boost/variant.hpp>
 
 /**
                  The Overall Implementation of Sort Kernel
@@ -1663,36 +1664,86 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
+  #define PROCESS_SUPPORTED_TYPES(PROCESS) \
+  PROCESS(arrow::BooleanType)            \
+  PROCESS(arrow::UInt8Type)              \
+  PROCESS(arrow::Int8Type)               \
+  PROCESS(arrow::UInt16Type)             \
+  PROCESS(arrow::Int16Type)              \
+  PROCESS(arrow::UInt32Type)             \
+  PROCESS(arrow::Int32Type)              \
+  PROCESS(arrow::UInt64Type)             \
+  PROCESS(arrow::Int64Type)              \
+  PROCESS(arrow::FloatType)              \
+  PROCESS(arrow::DoubleType)             \
+  PROCESS(arrow::Date32Type)             \
+  PROCESS(arrow::Date64Type)
   int compareInternal(int left_array_id, int64_t left_id, int right_array_id, 
-                      int64_t right_id, const CompareFunction& cmpFunc) {
+                      int64_t right_id) {
     int key_idx = 0;
     int keys_num = sort_directions_.size();
     while (key_idx < keys_num) {
       bool asc = sort_directions_[key_idx];
       bool nulls_first = nulls_order_[key_idx];
       int cmp_res = 2;
-      cmp_functions_[key_idx](cmpFunc, asc, nulls_first, key_idx, left_array_id, 
-                              right_array_id, left_id, right_id, cmp_res);
-      if (cmp_res != 2) {
-        return cmp_res;
+      bool is_left_null = 
+          typed_arrays_list_[key_idx]->IsNull(left_array_id, left_id);
+      bool is_right_null = 
+          typed_arrays_list_[key_idx]->IsNull(right_array_id, right_id);
+      if (!is_left_null || !is_right_null) {
+        if (is_left_null) {
+          cmp_res = nulls_first ? 1 : 0;
+        } else if (is_right_null) {
+          cmp_res = nulls_first ? 0 : 1;
+        } else {
+          if (key_field_list_[key_idx]->type()->id() == arrow::Type::STRING) {
+            auto left = typed_arrays_list_[key_idx]->GetString(left_array_id, left_id);
+            auto right = typed_arrays_list_[key_idx]->GetString(right_array_id, right_id);
+            if (left != right) {
+              cmp_res = asc ? (left < right) : (left > right);
+            }
+          } else {
+            switch (key_field_list_[key_idx]->type()->id()) {
+  #define PROCESS(InType)                                                                \
+    case InType::type_id: {                                                              \
+      using CType = typename arrow::TypeTraits<InType>::CType;                           \
+      CType flag;                                                                        \
+      auto left = typed_arrays_list_[key_idx]->GetView(left_array_id, left_id, flag);    \
+      auto right = typed_arrays_list_[key_idx]->GetView(right_array_id, right_id, flag); \
+      if (left != right) {                                                               \
+        cmp_res = asc ? (left < right) : (left > right);                                 \
+      }                                                                                  \
+    } break;
+            PROCESS_SUPPORTED_TYPES(PROCESS)
+  #undef PROCESS
+            default: {
+                std::cout << "type not supported, type is "
+                          << key_field_list_[key_idx]->type() << std::endl;
+              } break;
+            }
+          }
+        }
+        if (cmp_res != 2) {
+          return cmp_res;
+        }
       }
       key_idx += 1;
     }
     return 2;
   }
+  #undef PROCESS_SUPPORTED_TYPES
 
   bool compareRow(int left_array_id, int64_t left_id, int right_array_id, 
-                  int64_t right_id, const CompareFunction& cmpFunc) {
-    if (compareInternal(left_array_id, left_id, right_array_id, right_id, cmpFunc) == 1) {
+                  int64_t right_id) {
+    if (compareInternal(left_array_id, left_id, right_array_id, right_id) == 1) {
       return true;
     }
     return false;
   }
 
-  auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end, 
-            const CompareFunction& cmpFunc) {
-    auto comp = [this, &cmpFunc](ArrayItemIndexS x, ArrayItemIndexS y) {
-        return compareRow(x.array_id, x.id, y.array_id, y.id, cmpFunc);};
+  auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
+    auto comp = [this](ArrayItemIndexS x, ArrayItemIndexS y) {
+        return compareRow(x.array_id, x.id, y.array_id, y.id);};
     gfx::timsort(indices_begin, indices_begin + items_total_, comp);
   }
 
@@ -1720,18 +1771,24 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     // do partition and sort here
     Partition(indices_begin, indices_end);
     if (key_projector_) {
-      GenCmpFunction(projected_field_list_, cmp_functions_);
-      std::vector<int> projected_key_idx_list;
       for (int i = 0; i < projected_field_list_.size(); i++) {
-        projected_key_idx_list.push_back(i);
+        auto field = projected_field_list_[i];
+        auto col = projected_[i];
+        std::shared_ptr<TypedArraysBase> typed_col;
+        MakeTypedArrays(col, field->type(), &typed_col);
+        typed_arrays_list_.push_back(typed_col);
       }
-      CompareFunction cmpFunc(projected_, projected_field_list_, projected_key_idx_list);
-      Sort(indices_begin, indices_end, cmpFunc);
     } else {
-      GenCmpFunction(key_field_list_, cmp_functions_);
-      CompareFunction cmpFunc(cached_, key_field_list_, key_index_list_);
-      Sort(indices_begin, indices_end, cmpFunc);
+      for (int i = 0; i < key_field_list_.size(); i++) {
+        auto field = key_field_list_[i];
+        int key_col_id = key_index_list_[i];
+        auto col = cached_[i];
+        std::shared_ptr<TypedArraysBase> typed_col;
+        MakeTypedArrays(col, field->type(), &typed_col);
+        typed_arrays_list_.push_back(typed_col);
+      }
     }
+    Sort(indices_begin, indices_end);
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
     RETURN_NOT_OK(
         MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
@@ -1765,7 +1822,10 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
   uint64_t items_total_ = 0;
   int col_num_;
   std::vector<std::function<void(const CompareFunction&, bool, bool, int, int, int, 
-                                 int64_t, int64_t, int&)>> cmp_functions_;                             
+                                 int64_t, int64_t, int&)>> cmp_functions_;
+  std::vector<std::shared_ptr<TypedArraysBase>> typed_arrays_list_;
+  // std::vector<boost::variant<uint8_t, int8_t, uint16_t, int16_t, uint32_t, int32_t, 
+  //                            uint64_t, int64_t, float, double, bool>>& cmp_flags_;                                                        
 
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:

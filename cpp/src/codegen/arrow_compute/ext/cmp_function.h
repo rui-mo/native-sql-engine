@@ -22,6 +22,8 @@
 #include <arrow/type.h>
 #include <arrow/array.h>
 
+#include <boost/variant.hpp>
+
 namespace sparkcolumnarplugin {
 namespace codegen {
 namespace arrowcompute {
@@ -715,6 +717,214 @@ static arrow::Status GetPrefix(std::shared_ptr<arrow::DataType> type,
 #undef PROCESS_SUPPORTED_TYPES
 }
 
+class TypedArraysBase {
+ public:
+  virtual ~TypedArraysBase() {}
+
+  virtual bool GetView(int array_id, int id, bool res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual uint8_t GetView(int array_id, int id, uint8_t res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual int8_t GetView(int array_id, int id, int8_t res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual uint16_t GetView(int array_id, int id, uint16_t res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual int16_t GetView(int array_id, int id, int16_t res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual uint32_t GetView(int array_id, int id, uint32_t res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual int32_t GetView(int array_id, int id, int32_t res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual uint64_t GetView(int array_id, int id, uint64_t res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual int64_t GetView(int array_id, int id, int64_t res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual float GetView(int array_id, int id, float res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual double GetView(int array_id, int id, double res) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    return res;
+  }
+
+  virtual std::string GetString(int array_id, int id) {
+    // return arrow::Status::NotImplemented("TypedArraysBase GetView is abstract. ");
+    std::string res;
+    return res;
+  }
+
+  virtual bool IsNull(int array_id, int id) {
+    std::cout << "TypedArraysBase IsNull is abstract. " << std::endl;
+    return false;
+  }
+};
+
+template <typename DataType, typename CType>
+class TypedArrays : public TypedArraysBase {
+ public:
+  TypedArrays(const arrow::ArrayVector& arrays) {
+    for (int array_id = 0; array_id < arrays.size(); array_id++) {
+      auto typed_array = std::dynamic_pointer_cast<ArrayType>(arrays[array_id]);
+      typed_arrays_.push_back(typed_array);
+    }
+  }
+  ~TypedArrays() {}
+
+  CType GetView(int array_id, int id, CType res) {
+    return typed_arrays_[array_id]->GetView(id);
+    // std::cout << "res is: " << res << std::endl;
+    // return arrow::Status::OK();
+    // return res;
+  }
+
+  bool IsNull(int array_id, int id) {
+    return typed_arrays_[array_id]->IsNull(id);
+  }
+
+ private:
+  using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
+  std::vector<std::shared_ptr<ArrayType>> typed_arrays_;
+};
+
+template <typename DataType, typename CType>
+class StringArrays : public TypedArraysBase {
+ public:
+  StringArrays(const arrow::ArrayVector& arrays) {
+    for (int array_id = 0; array_id < arrays.size(); array_id++) {
+      auto typed_array = std::dynamic_pointer_cast<ArrayType>(arrays[array_id]);
+      typed_arrays_.push_back(typed_array);
+    }
+  }
+  ~StringArrays() {}
+
+  std::string GetString(int array_id, int id) {
+    return typed_arrays_[array_id]->GetString(id);
+  }
+
+  bool IsNull(int array_id, int id) {
+    return typed_arrays_[array_id]->IsNull(id);
+  }
+
+ private:
+  using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
+  std::vector<std::shared_ptr<ArrayType>> typed_arrays_;
+};
+
+#define PROCESS_SUPPORTED_TYPES(PROCESS) \
+  PROCESS(arrow::BooleanType)            \
+  PROCESS(arrow::UInt8Type)              \
+  PROCESS(arrow::Int8Type)               \
+  PROCESS(arrow::UInt16Type)             \
+  PROCESS(arrow::Int16Type)              \
+  PROCESS(arrow::UInt32Type)             \
+  PROCESS(arrow::Int32Type)              \
+  PROCESS(arrow::UInt64Type)             \
+  PROCESS(arrow::Int64Type)              \
+  PROCESS(arrow::FloatType)              \
+  PROCESS(arrow::DoubleType)             \
+  PROCESS(arrow::Date32Type)             \
+  PROCESS(arrow::Date64Type)
+static arrow::Status MakeTypedArrays(const arrow::ArrayVector& arrays,
+                                     std::shared_ptr<arrow::DataType> type,
+                                     std::shared_ptr<TypedArraysBase>* out) {
+  if (type->id() == arrow::Type::STRING) {
+    auto arrays_ptr = 
+        std::make_shared<StringArrays<arrow::StringType, std::string>>(arrays);
+    *out = std::dynamic_pointer_cast<TypedArraysBase>(arrays_ptr);
+  } else {
+    switch (type->id()) {
+#define PROCESS(InType)                                                           \
+    case InType::type_id: {                                                       \
+      using CType = typename arrow::TypeTraits<InType>::CType;                    \
+      auto arrays_ptr = std::make_shared<TypedArrays<InType, CType>>(arrays);     \
+      *out = std::dynamic_pointer_cast<TypedArraysBase>(arrays_ptr);              \
+    } break;
+      PROCESS_SUPPORTED_TYPES(PROCESS)
+#undef PROCESS
+      default: {
+        std::cout << "MakeTypedArrays type not supported, type is " << type << std::endl;
+      } break;
+    }
+  }
+  return arrow::Status::OK();
+}
+#undef PROCESS_SUPPORTED_TYPES
+
+void GenCmpFlags(std::vector<std::shared_ptr<arrow::Field>> key_field_list, 
+    std::vector<boost::variant<uint8_t, int8_t, uint16_t, int16_t, uint32_t, int32_t, 
+                               uint64_t, int64_t, float, double, bool>>& cmp_flags) {
+  for (auto field : key_field_list) {
+    if (field->type()->id() == arrow::Type::UINT8) {
+      uint8_t flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::INT8) {
+      int8_t flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::UINT16) {
+      uint16_t flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::INT16) {
+      int16_t flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::UINT32) {
+      uint32_t flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::INT32) {
+      int32_t flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::UINT64) {
+      uint64_t flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::INT64) {
+      int64_t flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::DATE32) {
+      int32_t flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::DATE64) {
+      int64_t flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::FLOAT) {
+      float flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::DOUBLE) {
+      double flag;
+      cmp_flags.push_back(flag);
+    } else if (field->type()->id() == arrow::Type::BOOL) {
+      bool flag;
+      cmp_flags.push_back(flag);
+    }
+  }
+}
 
 }  // namespace extra
 }  // namespace arrowcompute
