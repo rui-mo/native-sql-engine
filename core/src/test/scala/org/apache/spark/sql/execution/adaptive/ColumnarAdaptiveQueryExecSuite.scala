@@ -135,7 +135,7 @@ class ColumnarAdaptiveQueryExecSuite
     assert(numShuffles === (numLocalReaders.length + numShufflesWithoutLocalReader))
   }
 
-  ignore("Columnar exchange reuse") {
+  test("Columnar exchange reuse") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {

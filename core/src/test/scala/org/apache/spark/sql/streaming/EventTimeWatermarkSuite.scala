@@ -144,7 +144,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     assert(e.getMessage contains "int")
   }
 
-  ignore("event time and watermark metrics") {
+  test("event time and watermark metrics") {
     // No event time metrics when there is no watermarking
     val inputData1 = MemoryStream[Int]
     val aggWithoutWatermark = inputData1.toDF()
@@ -184,7 +184,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     )
   }
 
-  ignore("event time and watermark metrics with Trigger.Once (SPARK-24699)") {
+  test("event time and watermark metrics with Trigger.Once (SPARK-24699)") {
     // All event time metrics where watermarking is set
     val inputData = MemoryStream[Int]
     val aggWithWatermark = inputData.toDF()
@@ -239,7 +239,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
       assertEventStats(min = 50, max = 50, avg = 50, wtrmark = 40))
   }
 
-  ignore("recovery from Spark ver 2.3.1 commit log without commit metadata (SPARK-24699)") {
+  test("recovery from Spark ver 2.3.1 commit log without commit metadata (SPARK-24699)") {
     // All event time metrics where watermarking is set
     val inputData = MemoryStream[Int]
     val aggWithWatermark = inputData.toDF()
@@ -301,7 +301,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
       assertEventStats(min = 50, max = 50, avg = 50, wtrmark = 40))
   }
 
-  ignore("append mode") {
+  test("append mode") {
     val inputData = MemoryStream[Int]
 
     val windowedAggregation = inputData.toDF()
@@ -323,7 +323,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     )
   }
 
-  ignore("update mode") {
+  test("update mode") {
     val inputData = MemoryStream[Int]
     spark.conf.set(SQLConf.SHUFFLE_PARTITIONS.key, "10")
 
@@ -349,7 +349,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     )
   }
 
-  ignore("delay in months and years handled correctly") {
+  test("delay in months and years handled correctly") {
     val currentTimeMs = System.currentTimeMillis
     val currentTime = new Date(currentTimeMs)
 
@@ -384,7 +384,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     )
   }
 
-  ignore("recovery") {
+  test("recovery") {
     val inputData = MemoryStream[Int]
     val df = inputData.toDF()
       .withColumn("eventTime", $"value".cast("timestamp"))
@@ -417,7 +417,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     )
   }
 
-  ignore("watermark with 2 streams") {
+  test("watermark with 2 streams") {
     import org.apache.spark.sql.functions.sum
     val first = MemoryStream[Int]
 
@@ -495,7 +495,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     }
   }
 
-  ignore("complete mode") {
+  test("complete mode") {
     val inputData = MemoryStream[Int]
 
     val windowedAggregation = inputData.toDF()
@@ -520,7 +520,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     )
   }
 
-  ignore("group by on raw timestamp") {
+  test("group by on raw timestamp") {
     val inputData = MemoryStream[Int]
 
     val windowedAggregation = inputData.toDF()
@@ -574,7 +574,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     assert(eventTimeColumns(0).name === "second")
   }
 
-  ignore("EventTime watermark should be ignored in batch query.") {
+  test("EventTime watermark should be ignored in batch query.") {
     val df = testData
       .withColumn("eventTime", $"key".cast("timestamp"))
       .withWatermark("eventTime", "1 minute")
@@ -584,7 +584,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     checkDataset[Long](df, 1L to 100L: _*)
   }
 
-  ignore("SPARK-21565: watermark operator accepts attributes from replacement") {
+  test("SPARK-21565: watermark operator accepts attributes from replacement") {
     withTempDir { dir =>
       dir.delete()
 
@@ -612,7 +612,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     }
   }
 
-  ignore("SPARK-27340 Alias on TimeWindow expression cause watermark metadata lost") {
+  test("SPARK-27340 Alias on TimeWindow expression cause watermark metadata lost") {
     val inputData = MemoryStream[Int]
     val aliasWindow = inputData.toDF()
       .withColumn("eventTime", $"value".cast("timestamp"))
@@ -639,7 +639,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     )
   }
 
-  ignore("test no-data flag") {
+  test("test no-data flag") {
     val flagKey = SQLConf.STREAMING_NO_DATA_MICRO_BATCHES_ENABLED.key
 
     def testWithFlag(flag: Boolean): Unit = withClue(s"with $flagKey = $flag") {
@@ -665,7 +665,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     testWithFlag(false)
   }
 
-  ignore("MultipleWatermarkPolicy: max") {
+  test("MultipleWatermarkPolicy: max") {
     val input1 = MemoryStream[Int]
     val input2 = MemoryStream[Int]
 
@@ -687,7 +687,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     }
   }
 
-  ignore("MultipleWatermarkPolicy: min") {
+  test("MultipleWatermarkPolicy: min") {
     val input1 = MemoryStream[Int]
     val input2 = MemoryStream[Int]
 
@@ -709,7 +709,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     }
   }
 
-  ignore("MultipleWatermarkPolicy: recovery from checkpoints ignores session conf") {
+  test("MultipleWatermarkPolicy: recovery from checkpoints ignores session conf") {
     val input1 = MemoryStream[Int]
     val input2 = MemoryStream[Int]
 
@@ -737,7 +737,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     }
   }
 
-  ignore("MultipleWatermarkPolicy: recovery from Spark ver 2.3.1 checkpoints ensures min policy") {
+  test("MultipleWatermarkPolicy: recovery from Spark ver 2.3.1 checkpoints ensures min policy") {
     val input1 = MemoryStream[Int]
     val input2 = MemoryStream[Int]
 

@@ -178,7 +178,7 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("read partitioning bucketed tables with bucket pruning filters") {
+  test("read partitioning bucketed tables with bucket pruning filters") {
     withTable("bucketed_table") {
       val numBuckets = NumBucketsForPruningDF
       val bucketSpec = BucketSpec(numBuckets, Seq("j"), Nil)

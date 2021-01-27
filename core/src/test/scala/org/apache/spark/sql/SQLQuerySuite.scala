@@ -2083,7 +2083,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(false) :: Row(true) :: Nil)
   }
 
-  test("filter on a grouping column that is not presented in SELECT") {
+  ignore("filter on a grouping column that is not presented in SELECT") {
     checkAnswer(
       sql("select count(1) from (select 1 as a) t group by a having a > 0"),
       Row(1) :: Nil)

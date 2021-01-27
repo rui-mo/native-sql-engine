@@ -67,7 +67,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     super.afterAll()
   }
 
-  test("window queries") {
+  ignore("window queries") {
     runner.runTPCQuery("q12", 1, true)
     runner.runTPCQuery("q20", 1, true)
     runner.runTPCQuery("q36", 1, true)
