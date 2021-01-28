@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "array_appender.h"
+#include "cmp_function.h"
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "codegen/arrow_compute/ext/code_generator_base.h"
 #include "codegen/arrow_compute/ext/codegen_common.h"
@@ -1608,7 +1609,6 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
         sort_directions_(sort_directions), 
         result_schema_(result_schema), 
         key_projector_(key_projector),
-        projected_types_(projected_types),
         key_field_list_(key_field_list),
         NaN_check_(NaN_check) {
       #ifdef DEBUG
@@ -1642,49 +1642,58 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     for (int i = 0; i < col_num_; i++) {
         cached_[i].push_back(in[i]);
     }
-    std::vector<std::shared_ptr<UnsafeArray>> arrays;
-    std::vector<std::shared_ptr<arrow::Array>> projected_in;
     if (key_projector_) {
+      int projected_col_num = projected_field_list_.size();
+      if (projected_.size() <= projected_col_num) {
+        projected_.resize(projected_col_num + 1);
+      }
+      std::vector<std::shared_ptr<arrow::Array>> projected_batch; 
       // do projection here, and the projected arrays are used for comparison
       auto length = in.size() > 0 ? in[0]->length() : 0;
       auto in_batch = arrow::RecordBatch::Make(result_schema_, length, in);
       RETURN_NOT_OK(
-          key_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &projected_in));
-      for (int i = 0; i < key_field_list_.size(); i++) {
-        std::shared_ptr<arrow::Array> col = projected_in[i];
-        std::shared_ptr<UnsafeArray> array;
-        RETURN_NOT_OK(MakeUnsafeArray(col->type(), i, col, &array));
-        arrays.push_back(array);
-      }    
-    } else {
-      // the input arrays are used for comparison
-      int i = 0;
-      for (auto idx : key_index_list_) {
-        std::shared_ptr<arrow::Array> col;
-        col = in[idx];
-        std::shared_ptr<UnsafeArray> array;
-        RETURN_NOT_OK(MakeUnsafeArray(col->type(), i++, col, &array));
-        arrays.push_back(array);
+          key_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &projected_batch));
+      for (int i = 0; i < projected_col_num; i++) {
+        std::shared_ptr<arrow::Array> col = projected_batch[i];
+        projected_[i].push_back(col);
       }
     }
-    // append value to AccessibleUnsafeRow
-    std::vector<std::shared_ptr<AccessibleUnsafeRow>> rows_in_batch;
-    for (int i = 0; i < in[0]->length(); i++) {
-      std::shared_ptr<AccessibleUnsafeRow> row;
-      if (key_projector_) {
-        row = std::make_shared<AccessibleUnsafeRow>(projected_field_list_);
-      } else {
-        row = std::make_shared<AccessibleUnsafeRow>(key_field_list_);
-      }
-      for (auto array : arrays) {
-        RETURN_NOT_OK(array->Append(i, &row));
-      }
-      rows_in_batch.push_back(row);
-    }
-    unsafe_rows_.push_back(rows_in_batch);
     items_total_ += in[0]->length();
     length_list_.push_back(in[0]->length());
     return arrow::Status::OK();
+  }
+
+  int compareInternal(int left_array_id, int64_t left_id, int right_array_id, 
+                      int64_t right_id, const CompareFunction& cmpFunc) {
+    int key_idx = 0;
+    int keys_num = sort_directions_.size();
+    while (key_idx < keys_num) {
+      bool asc = sort_directions_[key_idx];
+      bool nulls_first = nulls_order_[key_idx];
+      int cmp_res = 2;
+      cmp_functions_[key_idx](cmpFunc, asc, nulls_first, key_idx, left_array_id, 
+                              right_array_id, left_id, right_id, cmp_res);
+      if (cmp_res != 2) {
+        return cmp_res;
+      }
+      key_idx += 1;
+    }
+    return 2;
+  }
+
+  bool compareRow(int left_array_id, int64_t left_id, int right_array_id, 
+                  int64_t right_id, const CompareFunction& cmpFunc) {
+    if (compareInternal(left_array_id, left_id, right_array_id, right_id, cmpFunc) == 1) {
+      return true;
+    }
+    return false;
+  }
+
+  auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end, 
+            const CompareFunction& cmpFunc) {
+    auto comp = [this, &cmpFunc](ArrayItemIndexS x, ArrayItemIndexS y) {
+        return compareRow(x.array_id, x.id, y.array_id, y.id, cmpFunc);};
+    gfx::timsort(indices_begin, indices_begin + items_total_, comp);
   }
 
   void Partition(ArrayItemIndexS* indices_begin, 
@@ -1700,13 +1709,6 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     }
   }
 
-  auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end, 
-            std::shared_ptr<RowComparator> rowComparator) {
-    auto comp = [this, &rowComparator](ArrayItemIndexS x, ArrayItemIndexS y) {
-        return rowComparator->compare(x.array_id, x.id, y.array_id, y.id);};
-    gfx::timsort(indices_begin, indices_begin + items_total_, comp);
-  }
-
   arrow::Status FinishInternal(std::shared_ptr<FixedSizeBinaryArray>* out) {
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
@@ -1717,9 +1719,19 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     ArrayItemIndexS* indices_end = indices_begin + items_total_;
     // do partition and sort here
     Partition(indices_begin, indices_end);
-    std::shared_ptr<RowComparator> rowSorter = std::make_shared<RowComparator>(
-        unsafe_rows_, sort_directions_, nulls_order_);
-    Sort(indices_begin, indices_end, rowSorter);
+    if (key_projector_) {
+      GenCmpFunction(projected_field_list_, cmp_functions_);
+      std::vector<int> projected_key_idx_list;
+      for (int i = 0; i < projected_field_list_.size(); i++) {
+        projected_key_idx_list.push_back(i);
+      }
+      CompareFunction cmpFunc(projected_, projected_field_list_, projected_key_idx_list);
+      Sort(indices_begin, indices_end, cmpFunc);
+    } else {
+      GenCmpFunction(key_field_list_, cmp_functions_);
+      CompareFunction cmpFunc(cached_, key_field_list_, key_index_list_);
+      Sort(indices_begin, indices_end, cmpFunc);
+    }
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
     RETURN_NOT_OK(
         MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
@@ -1738,21 +1750,22 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
 
  private:
   std::vector<arrow::ArrayVector> cached_;
+  std::vector<arrow::ArrayVector> projected_;
   arrow::compute::FunctionContext* ctx_;
   std::shared_ptr<arrow::Schema> result_schema_;
   std::shared_ptr<gandiva::Projector> key_projector_;
-  std::vector<std::shared_ptr<arrow::DataType>> projected_types_;
   std::vector<std::shared_ptr<arrow::Field>> key_field_list_;
   std::vector<std::shared_ptr<arrow::Field>> projected_field_list_;
   std::vector<bool> nulls_order_;
   std::vector<bool> sort_directions_;
   std::vector<int> key_index_list_;
-  std::vector<std::vector<std::shared_ptr<AccessibleUnsafeRow>>> unsafe_rows_;
   bool NaN_check_;
   std::vector<int64_t> length_list_;
   uint64_t num_batches_ = 0;
   uint64_t items_total_ = 0;
   int col_num_;
+  std::vector<std::function<void(const CompareFunction&, bool, bool, int, int, int, 
+                                 int64_t, int64_t, int&)>> cmp_functions_;                             
 
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
