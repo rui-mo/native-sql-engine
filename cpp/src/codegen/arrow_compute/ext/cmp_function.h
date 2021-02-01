@@ -2311,12 +2311,26 @@ class TypedComparator {
       if (nulls_first) {
         return [=](int left_array_id, int right_array_id, 
                    int64_t left_id, int64_t right_id, int& cmp_res) {
-          bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
-          bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
-          if (!is_left_null || !is_right_null) {
-            if (is_left_null) {
+          bool left_has_null = typed_arrays[left_array_id]->null_count() > 0;
+          bool right_has_null = typed_arrays[right_array_id]->null_count() > 0;
+          if (!left_has_null && !right_has_null) {
+            CType left = typed_arrays[left_array_id]->GetView(left_id);
+            CType right = typed_arrays[right_array_id]->GetView(right_id);
+            if (left != right) {
+              cmp_res = left < right;
+            }
+          } else if (left_has_null && !right_has_null) {
+            if (typed_arrays[left_array_id]->IsNull(left_id)) {
               cmp_res = 1;
-            } else if (is_right_null) {
+            } else {
+              CType left = typed_arrays[left_array_id]->GetView(left_id);
+              CType right = typed_arrays[right_array_id]->GetView(right_id);
+              if (left != right) {
+                cmp_res = left < right;
+              }
+            }
+          } else if (right_has_null && !left_has_null) {
+            if (typed_arrays[right_array_id]->IsNull(right_id)) {
               cmp_res = 0;
             } else {
               CType left = typed_arrays[left_array_id]->GetView(left_id);
@@ -2325,23 +2339,69 @@ class TypedComparator {
                 cmp_res = left < right;
               }
             }
+          } else {
+            bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
+            bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
+            if (!is_left_null || !is_right_null) {
+              if (is_left_null) {
+                cmp_res = 1;
+              } else if (is_right_null) {
+                cmp_res = 0;
+              } else {
+                CType left = typed_arrays[left_array_id]->GetView(left_id);
+                CType right = typed_arrays[right_array_id]->GetView(right_id);
+                if (left != right) {
+                  cmp_res = left < right;
+                }
+              }
+            }
           }
         };
       } else {
         return [=](int left_array_id, int right_array_id, 
                    int64_t left_id, int64_t right_id, int& cmp_res) {
-          bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
-          bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
-          if (!is_left_null || !is_right_null) {
-            if (is_left_null) {
+          bool left_has_null = typed_arrays[left_array_id]->null_count() > 0;
+          bool right_has_null = typed_arrays[right_array_id]->null_count() > 0;
+          if (!left_has_null && !right_has_null) {
+            CType left = typed_arrays[left_array_id]->GetView(left_id);
+            CType right = typed_arrays[right_array_id]->GetView(right_id);
+            if (left != right) {
+              cmp_res = left < right;
+            }
+          } else if (left_has_null && !right_has_null) {
+            if (typed_arrays[left_array_id]->IsNull(left_id)) {
               cmp_res = 0;
-            } else if (is_right_null) {
+            } else {
+              CType left = typed_arrays[left_array_id]->GetView(left_id);
+              CType right = typed_arrays[right_array_id]->GetView(right_id);
+              if (left != right) {
+                cmp_res = left < right;
+              }
+            }
+          } else if (right_has_null && !left_has_null) {
+            if (typed_arrays[right_array_id]->IsNull(right_id)) {
               cmp_res = 1;
             } else {
               CType left = typed_arrays[left_array_id]->GetView(left_id);
               CType right = typed_arrays[right_array_id]->GetView(right_id);
               if (left != right) {
                 cmp_res = left < right;
+              }
+            }
+          } else {
+            bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
+            bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
+            if (!is_left_null || !is_right_null) {
+              if (is_left_null) {
+                cmp_res = 0;
+              } else if (is_right_null) {
+                cmp_res = 1;
+              } else {
+                CType left = typed_arrays[left_array_id]->GetView(left_id);
+                CType right = typed_arrays[right_array_id]->GetView(right_id);
+                if (left != right) {
+                  cmp_res = left < right;
+                }
               }
             }
           }
@@ -2350,12 +2410,26 @@ class TypedComparator {
     } else if (nulls_first) {
       return [=](int left_array_id, int right_array_id, 
                  int64_t left_id, int64_t right_id, int& cmp_res) {
-        bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
-        bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
-        if (!is_left_null || !is_right_null) {
-          if (is_left_null) {
+        bool left_has_null = typed_arrays[left_array_id]->null_count() > 0;
+        bool right_has_null = typed_arrays[right_array_id]->null_count() > 0;
+        if (!left_has_null && !right_has_null) {
+          CType left = typed_arrays[left_array_id]->GetView(left_id);
+          CType right = typed_arrays[right_array_id]->GetView(right_id);
+          if (left != right) {
+            cmp_res = left > right;
+          }
+        } else if (left_has_null && !right_has_null) {
+          if (typed_arrays[left_array_id]->IsNull(left_id)) {
             cmp_res = 1;
-          } else if (is_right_null) {
+          } else {
+            CType left = typed_arrays[left_array_id]->GetView(left_id);
+            CType right = typed_arrays[right_array_id]->GetView(right_id);
+            if (left != right) {
+              cmp_res = left > right;
+            }
+          }
+        } else if (right_has_null && !left_has_null) {
+          if (typed_arrays[right_array_id]->IsNull(right_id)) {
             cmp_res = 0;
           } else {
             CType left = typed_arrays[left_array_id]->GetView(left_id);
@@ -2364,23 +2438,69 @@ class TypedComparator {
               cmp_res = left > right;
             }
           }
+        } else {
+          bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
+          bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
+          if (!is_left_null || !is_right_null) {
+            if (is_left_null) {
+              cmp_res = 1;
+            } else if (is_right_null) {
+              cmp_res = 0;
+            } else {
+              CType left = typed_arrays[left_array_id]->GetView(left_id);
+              CType right = typed_arrays[right_array_id]->GetView(right_id);
+              if (left != right) {
+                cmp_res = left > right;
+              }
+            }
+          }
         }
       };
     } else {
       return [=](int left_array_id, int right_array_id, 
                  int64_t left_id, int64_t right_id, int& cmp_res) {
-        bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
-        bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
-        if (!is_left_null || !is_right_null) {
-          if (is_left_null) {
+        bool left_has_null = typed_arrays[left_array_id]->null_count() > 0;
+        bool right_has_null = typed_arrays[right_array_id]->null_count() > 0;
+        if (!left_has_null && !right_has_null) {
+          CType left = typed_arrays[left_array_id]->GetView(left_id);
+          CType right = typed_arrays[right_array_id]->GetView(right_id);
+          if (left != right) {
+            cmp_res = left > right;
+          }
+        } else if (left_has_null && !right_has_null) {
+          if (typed_arrays[left_array_id]->IsNull(left_id)) {
             cmp_res = 0;
-          } else if (is_right_null) {
+          } else {
+            CType left = typed_arrays[left_array_id]->GetView(left_id);
+            CType right = typed_arrays[right_array_id]->GetView(right_id);
+            if (left != right) {
+              cmp_res = left > right;
+            }
+          }
+        } else if (right_has_null && !left_has_null) {
+          if (typed_arrays[right_array_id]->IsNull(right_id)) {
             cmp_res = 1;
           } else {
             CType left = typed_arrays[left_array_id]->GetView(left_id);
             CType right = typed_arrays[right_array_id]->GetView(right_id);
             if (left != right) {
               cmp_res = left > right;
+            }
+          }
+        } else {
+          bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
+          bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
+          if (!is_left_null || !is_right_null) {
+            if (is_left_null) {
+              cmp_res = 0;
+            } else if (is_right_null) {
+              cmp_res = 1;
+            } else {
+              CType left = typed_arrays[left_array_id]->GetView(left_id);
+              CType right = typed_arrays[right_array_id]->GetView(right_id);
+              if (left != right) {
+                cmp_res = left > right;
+              }
             }
           }
         }
@@ -2432,12 +2552,26 @@ class StringComparator {
       if (nulls_first) {
         return [=](int left_array_id, int right_array_id, 
                    int64_t left_id, int64_t right_id, int& cmp_res) {
-          bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
-          bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
-          if (!is_left_null || !is_right_null) {
-            if (is_left_null) {
+          bool left_has_null = typed_arrays[left_array_id]->null_count() > 0;
+          bool right_has_null = typed_arrays[right_array_id]->null_count() > 0;
+          if (!left_has_null && !right_has_null) {
+            CType left = typed_arrays[left_array_id]->GetString(left_id);
+            CType right = typed_arrays[right_array_id]->GetString(right_id);
+            if (left != right) {
+              cmp_res = left < right;
+            }
+          } else if (left_has_null && !right_has_null) {
+            if (typed_arrays[left_array_id]->IsNull(left_id)) {
               cmp_res = 1;
-            } else if (is_right_null) {
+            } else {
+              CType left = typed_arrays[left_array_id]->GetString(left_id);
+              CType right = typed_arrays[right_array_id]->GetString(right_id);
+              if (left != right) {
+                cmp_res = left < right;
+              }
+            }
+          } else if (right_has_null && !left_has_null) {
+            if (typed_arrays[right_array_id]->IsNull(right_id)) {
               cmp_res = 0;
             } else {
               CType left = typed_arrays[left_array_id]->GetString(left_id);
@@ -2446,23 +2580,69 @@ class StringComparator {
                 cmp_res = left < right;
               }
             }
+          } else {
+            bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
+            bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
+            if (!is_left_null || !is_right_null) {
+              if (is_left_null) {
+                cmp_res = 1;
+              } else if (is_right_null) {
+                cmp_res = 0;
+              } else {
+                CType left = typed_arrays[left_array_id]->GetString(left_id);
+                CType right = typed_arrays[right_array_id]->GetString(right_id);
+                if (left != right) {
+                  cmp_res = left < right;
+                }
+              }
+            }
           }
         };
       } else {
         return [=](int left_array_id, int right_array_id, 
                    int64_t left_id, int64_t right_id, int& cmp_res) {
-          bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
-          bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
-          if (!is_left_null || !is_right_null) {
-            if (is_left_null) {
+          bool left_has_null = typed_arrays[left_array_id]->null_count() > 0;
+          bool right_has_null = typed_arrays[right_array_id]->null_count() > 0;
+          if (!left_has_null && !right_has_null) {
+            CType left = typed_arrays[left_array_id]->GetString(left_id);
+            CType right = typed_arrays[right_array_id]->GetString(right_id);
+            if (left != right) {
+              cmp_res = left < right;
+            }
+          } else if (left_has_null && !right_has_null) {
+            if (typed_arrays[left_array_id]->IsNull(left_id)) {
               cmp_res = 0;
-            } else if (is_right_null) {
+            } else {
+              CType left = typed_arrays[left_array_id]->GetString(left_id);
+              CType right = typed_arrays[right_array_id]->GetString(right_id);
+              if (left != right) {
+                cmp_res = left < right;
+              }
+            }
+          } else if (right_has_null && !left_has_null) {
+            if (typed_arrays[right_array_id]->IsNull(right_id)) {
               cmp_res = 1;
             } else {
               CType left = typed_arrays[left_array_id]->GetString(left_id);
               CType right = typed_arrays[right_array_id]->GetString(right_id);
               if (left != right) {
                 cmp_res = left < right;
+              }
+            }
+          } else {
+            bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
+            bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
+            if (!is_left_null || !is_right_null) {
+              if (is_left_null) {
+                cmp_res = 0;
+              } else if (is_right_null) {
+                cmp_res = 1;
+              } else {
+                CType left = typed_arrays[left_array_id]->GetString(left_id);
+                CType right = typed_arrays[right_array_id]->GetString(right_id);
+                if (left != right) {
+                  cmp_res = left < right;
+                }
               }
             }
           }
@@ -2471,12 +2651,26 @@ class StringComparator {
     } else if (nulls_first) {
       return [=](int left_array_id, int right_array_id, 
                  int64_t left_id, int64_t right_id, int& cmp_res) {
-        bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
-        bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
-        if (!is_left_null || !is_right_null) {
-          if (is_left_null) {
+        bool left_has_null = typed_arrays[left_array_id]->null_count() > 0;
+        bool right_has_null = typed_arrays[right_array_id]->null_count() > 0;
+        if (!left_has_null && !right_has_null) {
+          CType left = typed_arrays[left_array_id]->GetString(left_id);
+          CType right = typed_arrays[right_array_id]->GetString(right_id);
+          if (left != right) {
+            cmp_res = left > right;
+          }
+        } else if (left_has_null && !right_has_null) {
+          if (typed_arrays[left_array_id]->IsNull(left_id)) {
             cmp_res = 1;
-          } else if (is_right_null) {
+          } else {
+            CType left = typed_arrays[left_array_id]->GetString(left_id);
+            CType right = typed_arrays[right_array_id]->GetString(right_id);
+            if (left != right) {
+              cmp_res = left > right;
+            }
+          }
+        } else if (right_has_null && !left_has_null) {
+          if (typed_arrays[right_array_id]->IsNull(right_id)) {
             cmp_res = 0;
           } else {
             CType left = typed_arrays[left_array_id]->GetString(left_id);
@@ -2485,23 +2679,69 @@ class StringComparator {
               cmp_res = left > right;
             }
           }
+        } else {
+          bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
+          bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
+          if (!is_left_null || !is_right_null) {
+            if (is_left_null) {
+              cmp_res = 1;
+            } else if (is_right_null) {
+              cmp_res = 0;
+            } else {
+              CType left = typed_arrays[left_array_id]->GetString(left_id);
+              CType right = typed_arrays[right_array_id]->GetString(right_id);
+              if (left != right) {
+                cmp_res = left > right;
+              }
+            }
+          }
         }
       };
     } else {
       return [=](int left_array_id, int right_array_id, 
                  int64_t left_id, int64_t right_id, int& cmp_res) {
-        bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
-        bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
-        if (!is_left_null || !is_right_null) {
-          if (is_left_null) {
+        bool left_has_null = typed_arrays[left_array_id]->null_count() > 0;
+        bool right_has_null = typed_arrays[right_array_id]->null_count() > 0;
+        if (!left_has_null && !right_has_null) {
+          CType left = typed_arrays[left_array_id]->GetString(left_id);
+          CType right = typed_arrays[right_array_id]->GetString(right_id);
+          if (left != right) {
+            cmp_res = left > right;
+          }
+        } else if (left_has_null && !right_has_null) {
+          if (typed_arrays[left_array_id]->IsNull(left_id)) {
             cmp_res = 0;
-          } else if (is_right_null) {
+          } else {
+            CType left = typed_arrays[left_array_id]->GetString(left_id);
+            CType right = typed_arrays[right_array_id]->GetString(right_id);
+            if (left != right) {
+              cmp_res = left > right;
+            }
+          }
+        } else if (right_has_null && !left_has_null) {
+          if (typed_arrays[right_array_id]->IsNull(right_id)) {
             cmp_res = 1;
           } else {
             CType left = typed_arrays[left_array_id]->GetString(left_id);
             CType right = typed_arrays[right_array_id]->GetString(right_id);
             if (left != right) {
               cmp_res = left > right;
+            }
+          }
+        } else {
+          bool is_left_null = typed_arrays[left_array_id]->IsNull(left_id);
+          bool is_right_null = typed_arrays[right_array_id]->IsNull(right_id);
+          if (!is_left_null || !is_right_null) {
+            if (is_left_null) {
+              cmp_res = 0;
+            } else if (is_right_null) {
+              cmp_res = 1;
+            } else {
+              CType left = typed_arrays[left_array_id]->GetString(left_id);
+              CType right = typed_arrays[right_array_id]->GetString(right_id);
+              if (left != right) {
+                cmp_res = left > right;
+              }
             }
           }
         }
