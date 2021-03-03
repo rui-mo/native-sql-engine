@@ -30,7 +30,6 @@ import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.evaluator._
-
 import org.apache.spark.{SparkContext, SparkEnv, TaskContext}
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.sql.execution._
@@ -41,9 +40,10 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.plans.physical._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
-import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
+import org.apache.spark.util.{ExecutorManager, UserAddedJarUtils, Utils}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.types.DecimalType
+import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 
 /**
  * Columnar Based SortExec.
@@ -95,8 +95,10 @@ case class ColumnarSortExec(
         ConverterUtils.checkIfTypeSupported(attr.dataType)
       } catch {
         case e : UnsupportedOperationException =>
-          throw new UnsupportedOperationException(
-            s"${attr.dataType} is not supported in ColumnarSorter.")
+          if (!attr.dataType.isInstanceOf[DecimalType]) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in ColumnarSorter.")
+          }
       }
     }
     // check expr
