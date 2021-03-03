@@ -52,11 +52,31 @@ TEST(TestArrowCompute, ArithmeticDecimalTest) {
   int32_t right_precision = 13;
   int32_t out_precision = 22;
   int32_t out_scale = 10;
-  auto res = castDECIMAL(left, left_precision, left_scale, out_precision, out_scale);
-  std::cout << "castDECIMAL res is: " << res.ToString(out_scale) << std::endl;
-  res = divide(left, left_precision, left_scale, right, right_precision, right_scale, 
+  auto res = multiply(left, left_precision, left_scale, right, right_precision, right_scale, 
+                out_precision, out_scale);
+  std::cout << "multiply res is: " << res.ToString(out_scale) << std::endl;
+  res = multiplyArrow(left, left_precision, left_scale, right, right_precision, right_scale, 
+                out_precision, out_scale);
+  std::cout << "multiplyArrow res is: " << res.ToString(out_scale) << std::endl;
+}
+
+TEST(TestArrowCompute, ArithmeticDecimalTest2) {
+  auto left = arrow::Decimal128("52342232323232523422323232323423.012875");
+  auto right = arrow::Decimal128("52342232323232523422323232323423.01275");
+  int32_t left_scale = 6;
+  int32_t right_scale = 5;
+  int32_t left_precision = 38;
+  int32_t right_precision = 37;
+  int32_t out_precision = 38;
+  int32_t out_scale = 6;
+  // auto res = castDECIMAL(left, left_precision, left_scale, out_precision, out_scale);
+  // std::cout << "castDECIMAL res is: " << res.ToString(out_scale) << std::endl;
+  auto res = multiplyArrow(left, left_precision, left_scale, right, right_precision, right_scale, 
                out_precision, out_scale);
-  std::cout << "divide res is: " << res.ToString(out_scale) << std::endl;
+  std::cout << "multiplyArrow res is: " << res.ToString(out_scale) << std::endl;
+  res = multiply(left, left_precision, left_scale, right, right_precision, right_scale, 
+               out_precision, out_scale);
+  std::cout << "multiply res is: " << res.ToString(out_scale) << std::endl;
 }
 
 }  // namespace codegen
