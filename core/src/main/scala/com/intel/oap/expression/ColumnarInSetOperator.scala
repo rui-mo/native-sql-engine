@@ -61,7 +61,12 @@ class ColumnarInSet(value: Expression, hset: Set[Any], original: Expression)
       (funcNode, resultType)
     } else if (value.dataType == IntegerType) {
       val newlist = hset.toList.map (expr => {
-        expr.asInstanceOf[Literal].value.asInstanceOf[Integer]
+        expr match {
+          case integer: Integer =>
+            integer
+          case _ =>
+            expr.asInstanceOf[Literal].value.asInstanceOf[Integer]
+        }
       })
       val tlist = Lists.newArrayList(newlist:_*);
       val funcNode = TreeBuilder.makeInExpressionInt32(value_node: TreeNode, Sets.newHashSet(tlist))

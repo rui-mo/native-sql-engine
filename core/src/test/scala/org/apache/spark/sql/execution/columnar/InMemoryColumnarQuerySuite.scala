@@ -49,8 +49,8 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
+      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
@@ -465,7 +465,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  test("SPARK-20356: pruned InMemoryTableScanExec should have correct ordering and partitioning") {
+  ignore("SPARK-20356: pruned InMemoryTableScanExec should have correct ordering and partitioning") {
     withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "200") {
       val df1 = Seq(("a", 1), ("b", 1), ("c", 2)).toDF("item", "group")
       val df2 = Seq(("a", 1), ("b", 2), ("c", 3)).toDF("item", "id")
