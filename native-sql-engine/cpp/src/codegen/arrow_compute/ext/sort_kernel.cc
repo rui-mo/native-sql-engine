@@ -781,12 +781,12 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         sort_begin = std::partition(indices_begin, indices_end,
                                     [](TYPE i) { return std::isnan(i); });
       }
-      auto desc_comp = [this](TYPE& x, TYPE& y) { return x > y; };
-      std::sort(sort_begin, indices_end, desc_comp);
+      ska_sort(sort_begin, indices_end);
+      std::reverse(sort_begin, indices_end);
     }
   }
 
-  // This function is used for non-float and non-double data without null value.
+  // This function is used for non-floating and non-decimal data without null value.
   template <typename TYPE>
   auto SortNoNull(TYPE* indices_begin, TYPE* indices_end) ->
       typename std::enable_if_t<!std::is_floating_point<TYPE>::value &&
@@ -794,12 +794,12 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     if (asc_) {
       ska_sort(indices_begin, indices_end);
     } else {
-      auto desc_comp = [this](TYPE& x, TYPE& y) { return x > y; };
-      std::sort(indices_begin, indices_end, desc_comp);
+      ska_sort(indices_begin, indices_end);
+      std::reverse(indices_begin, indices_end);
     }
   }
 
-  // This function is used for non-float and non-double data without null value.
+  // This function is used for decimal data without null value.
   template <typename TYPE>
   auto SortNoNull(TYPE* indices_begin, TYPE* indices_end) ->
       typename std::enable_if_t<std::is_same<TYPE, arrow::Decimal128>::value> {
@@ -850,9 +850,6 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
                  [&values](auto& x) -> decltype(auto) { return values.GetView(x); });
       }
     } else {
-      auto comp = [&values](uint64_t left, uint64_t right) {
-        return values.GetView(left) > values.GetView(right);
-      };
       if (nulls_first_) {
         sort_begin = std::partition(indices_begin, indices_end, [&values](uint64_t ind) {
           return values.IsNull(ind);
@@ -864,7 +861,9 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
             return std::isnan(values.GetView(ind));
           });
         }
-        std::sort(sort_begin, indices_end, comp);
+        ska_sort(sort_begin, indices_end, 
+                 [&values](auto& x) -> decltype(auto) { return values.GetView(x); });
+        std::reverse(sort_begin, indices_end);
       } else {
         sort_end = std::partition(indices_begin, indices_end, [&values](uint64_t ind) {
           return !values.IsNull(ind);
@@ -876,12 +875,14 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
             return std::isnan(values.GetView(ind));
           });
         }
-        std::sort(sort_begin, sort_end, comp);
+        ska_sort(sort_begin, sort_end, 
+                 [&values](auto& x) -> decltype(auto) { return values.GetView(x); });
+        std::reverse(sort_begin, sort_end);
       }
     }
   }
 
-  // This function is used for non-float and non-double data with null value.
+  // This function is used for non-floating and non-decimal data with null value.
   // We should do partition for null.
   template <typename TYPE, typename ArrayType>
   auto Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) ->
@@ -903,19 +904,20 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
                  [&values](auto& x) -> decltype(auto) { return values.GetView(x); });
       }
     } else {
-      auto comp = [&values](uint64_t left, uint64_t right) {
-        return values.GetView(left) > values.GetView(right);
-      };
       if (nulls_first_) {
         auto nulls_end =
             std::partition(indices_begin, indices_end,
                            [&values](uint64_t ind) { return values.IsNull(ind); });
-        std::sort(nulls_end, indices_end, comp);
+        ska_sort(nulls_end, indices_end, 
+                 [&values](auto& x) -> decltype(auto) { return values.GetView(x); });
+        std::reverse(nulls_end, indices_end);
       } else {
         auto nulls_begin =
             std::partition(indices_begin, indices_end,
                            [&values](uint64_t ind) { return !values.IsNull(ind); });
-        std::sort(indices_begin, nulls_begin, comp);
+        ska_sort(indices_begin, nulls_begin, 
+                 [&values](auto& x) -> decltype(auto) { return values.GetView(x); });
+        std::reverse(indices_begin, nulls_begin);
       }
     }
   }
@@ -929,30 +931,26 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         return values.GetView(left) < values.GetView(right);
       };
       if (nulls_first_) {
-        auto nulls_end =
-            std::partition(indices_begin, indices_end,
-                           [&values](uint64_t ind) { return values.IsNull(ind); });
-        std::sort(nulls_end, indices_end, comp);
+        auto nulls_end = std::partition(indices_begin, indices_end, 
+            [&values](uint64_t ind) { return values.IsNull(ind); });
+        gfx::timsort(nulls_end, indices_end, comp);
       } else {
-        auto nulls_begin =
-            std::partition(indices_begin, indices_end,
-                           [&values](uint64_t ind) { return !values.IsNull(ind); });
-        std::sort(indices_begin, nulls_begin, comp);
+        auto nulls_begin = std::partition(indices_begin, indices_end, 
+            [&values](uint64_t ind) { return !values.IsNull(ind); });
+        gfx::timsort(indices_begin, nulls_begin, comp);
       }
     } else {
       auto comp = [&values](uint64_t left, uint64_t right) {
         return values.GetView(left) > values.GetView(right);
       };
       if (nulls_first_) {
-        auto nulls_end =
-            std::partition(indices_begin, indices_end,
-                           [&values](uint64_t ind) { return values.IsNull(ind); });
-        std::sort(nulls_end, indices_end, comp);
+        auto nulls_end = std::partition(indices_begin, indices_end,
+            [&values](uint64_t ind) { return values.IsNull(ind); });
+        gfx::timsort(nulls_end, indices_end, comp);
       } else {
-        auto nulls_begin =
-            std::partition(indices_begin, indices_end,
-                           [&values](uint64_t ind) { return !values.IsNull(ind); });
-        std::sort(indices_begin, nulls_begin, comp);
+        auto nulls_begin = std::partition(indices_begin, indices_end,
+            [&values](uint64_t ind) { return !values.IsNull(ind); });
+        gfx::timsort(indices_begin, nulls_begin, comp);
       }
     }
   }
@@ -1396,16 +1394,20 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                  });
       }
     } else {
-      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
-        return cached_key_[x.array_id]->GetView(x.id) >
-               cached_key_[y.array_id]->GetView(y.id);
-      };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
-                  comp);
+        ska_sort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
+                 [this](auto& x) -> decltype(auto) {
+                   return cached_key_[x.array_id]->GetView(x.id);
+                 });
+        std::reverse(indices_begin + nulls_total_ + num_nan, 
+                     indices_begin + items_total_);
       } else {
-        std::sort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
-                  comp);
+        ska_sort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
+                 [this](auto& x) -> decltype(auto) {
+                   return cached_key_[x.array_id]->GetView(x.id);
+                 });
+        std::reverse(indices_begin + num_nan, 
+                     indices_begin + items_total_ - nulls_total_);         
       }
     }
   }
@@ -1419,9 +1421,9 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetString(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
+        gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
+        gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
       }
     } else {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
@@ -1429,9 +1431,9 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetString(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
+        gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
+        gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
       }
     }
   }
@@ -1445,11 +1447,9 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_, indices_begin + items_total_ - num_nan,
-                  comp);
+        gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total_ - nulls_total_ - num_nan,
-                  comp);
+        gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
       }
     } else {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
@@ -1457,11 +1457,9 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total_ + num_nan, indices_begin + items_total_,
-                  comp);
+        gfx::timsort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
       } else {
-        std::sort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
-                  comp);
+        gfx::timsort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
       }
     }
   }
