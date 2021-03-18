@@ -31,7 +31,7 @@ namespace codegen {
 
 TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   ////////////////////// prepare expr_vector ///////////////////////
-  auto f0 = field("f0", float64());
+  auto f0 = field("f0", int32());
   auto arg_0 = TreeExprBuilder::MakeField(f0);
   auto true_literal = TreeExprBuilder::MakeLiteral(true);
   auto false_literal = TreeExprBuilder::MakeLiteral(false);
@@ -71,7 +71,7 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {"[1, NaN, 43, 42, 6, null, 2]"};
+  std::vector<std::string> input_data_string_2 = {"[1, 4, 43, 42, 6, null, 2]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -79,11 +79,11 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {"[23, 17, NaN, 18, 20, 35, 30]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, 6, 18, 20, 35, 30]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {"[37, null, NaN, 13, 8, 59, 21]"};
+  std::vector<std::string> input_data_string_5 = {"[37, null, 8, 13, 8, 59, 21]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -93,7 +93,7 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   std::vector<std::string> expected_result_string = {
       "[null, null, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 18, 19, "
       "20, 21, "
-      "23, 30, 32, 33, 35, 37, 42, 43, 50, 52, 59, 64, NaN, NaN, NaN]"};
+      "23, 30, 32, 33, 35, 37, 42, 43, 50, 52, 59, 64, 3, 1, 12]"};
   MakeInputBatch(expected_result_string, sch, &expected_result);
 
   for (auto batch : input_batch_list) {

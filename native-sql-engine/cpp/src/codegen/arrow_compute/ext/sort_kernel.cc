@@ -1054,28 +1054,32 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
           data = std::make_shared<arrow::ArrayData>();
         }
         // decide null_count
-        if (null_first) {
-          if ((offset + length) > null_total_) {
-            out_data_.null_count =
-                (null_total_ - offset > 0) ? (null_total_ - offset) : 0;
+        if (null_total_ > 0) {
+          if (null_first) {
+            if ((offset + length) > null_total_) {
+              out_data_.null_count =
+                  (null_total_ - offset > 0) ? (null_total_ - offset) : 0;
+            } else {
+              out_data_.null_count = length;
+            }
           } else {
-            out_data_.null_count = length;
+            auto valid_total = total_length - null_total_;
+            if ((offset + length) < valid_total) {
+              out_data_.null_count = 0;
+            } else {
+              out_data_.null_count =
+                  (offset - valid_total) > 0 ? length : (offset + length - valid_total);
+            }
           }
         } else {
-          auto valid_total = total_length - null_total_;
-          if ((offset + length) < valid_total) {
-            out_data_.null_count = 0;
-          } else {
-            out_data_.null_count =
-                (offset - valid_total) > 0 ? length : (offset + length - valid_total);
-          }
+          out_data_.null_count = 0;
         }
       }
 
       arrow::Status Slice(arrow::ArrayData* out) {
         const auto& buffer_0 = in_.buffers[0];
         const auto& buffer_1 = in_.buffers[1];
-        if (out_data_.null_count) {
+        if (out_data_.null_count > 0) {
           SliceBitmap(buffer_0, &out_data_.buffers[0]);
         }
         SliceBuffer(buffer_1, &out_data_.buffers[1]);
@@ -1114,35 +1118,15 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         return arrow::Status::OK();
       }
 
-      arrow::Status SliceBitmapImpl(const Bitmap& bitmap,
-                                    std::shared_ptr<arrow::Buffer>* out) {
-        auto length = bitmap.range.length;
-        auto offset = bitmap.range.offset;
-        ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(length, pool_));
-        uint8_t* dst = (*out)->mutable_data();
-
-        int64_t bitmap_offset = 0;
-        if (bitmap.AllSet()) {
-          arrow::BitUtil::SetBitsTo(dst, offset, length, true);
-        } else {
-          arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, bitmap_offset);
-        }
-
-        // finally (if applicable) zero out any trailing bits
-        if (auto preceding_bits = arrow::BitUtil::kPrecedingBitmask[length_ % 8]) {
-          dst[length_ / 8] &= preceding_bits;
-        }
-        return arrow::Status::OK();
-      }
-
       arrow::Status SliceBitmap(const std::shared_ptr<arrow::Buffer>& buffer,
                                 std::shared_ptr<arrow::Buffer>* out) {
         Range range(size * offset_, size * length_);
         Bitmap bitmap = Bitmap(buffer, range);
 
-        auto length = bitmap.range.length;
-        auto offset = bitmap.range.offset;
-        ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(length, pool_));
+        auto length = 8 * bitmap.range.length;
+        auto offset = 8 * bitmap.range.offset;
+        // ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(length, pool_));
+        ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(bitmap.range.length + 1));
         uint8_t* dst = (*out)->mutable_data();
 
         int64_t bitmap_offset = 0;
@@ -1153,9 +1137,9 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         }
 
         // finally (if applicable) zero out any trailing bits
-        if (auto preceding_bits = arrow::BitUtil::kPrecedingBitmask[length_ % 8]) {
-          dst[length_ / 8] &= preceding_bits;
-        }
+        // if (auto preceding_bits = arrow::BitUtil::kPrecedingBitmask[length_ % 8]) {
+        //   dst[length_ / 8] &= preceding_bits;
+        // }
         return arrow::Status::OK();
       }
 
