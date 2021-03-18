@@ -71,7 +71,7 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {"[1, 4, 43, 42, 6, null, 2]"};
+  std::vector<std::string> input_data_string_2 = {"[1, 4, 43, 42, 6, 6, 2]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -83,7 +83,7 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {"[37, null, 8, 13, 8, 59, 21]"};
+  std::vector<std::string> input_data_string_5 = {"[37, 9, 8, 13, 8, 59, 21]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 

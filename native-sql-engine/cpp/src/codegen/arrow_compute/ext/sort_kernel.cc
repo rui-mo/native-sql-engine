@@ -1019,8 +1019,13 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
           total_length_(result_arr->length()),
           nulls_total_(result_arr->null_count()),
           nulls_first_(nulls_first),
-          asc_(asc),
-          result_arr_(result_arr) {
+          asc_(asc) {
+      result_arr_ = std::dynamic_pointer_cast<ArrayType_0>(result_arr);
+      std::unique_ptr<arrow::ArrayBuilder> builder_0;
+      arrow::MakeBuilder(ctx_->memory_pool(), data_type_0, &builder_0);
+      builder_0_.reset(
+          arrow::internal::checked_cast<BuilderType_0*>(builder_0.release()));
+      batch_size_ = GetBatchSize();      
       batch_size_ = GetBatchSize();
     }
 
@@ -1080,7 +1085,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         const auto& buffer_0 = in_.buffers[0];
         const auto& buffer_1 = in_.buffers[1];
         if (out_data_.null_count > 0) {
-          SliceBitmap(buffer_0, &out_data_.buffers[0]);
+          SliceBitmap(buffer_0, &out_data_.buffers[0], out_data_.null_count);
         }
         SliceBuffer(buffer_1, &out_data_.buffers[1]);
         *out = std::move(out_data_);
@@ -1119,20 +1124,23 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
       }
 
       arrow::Status SliceBitmap(const std::shared_ptr<arrow::Buffer>& buffer,
-                                std::shared_ptr<arrow::Buffer>* out) {
-        Range range(size * offset_, size * length_);
+                                std::shared_ptr<arrow::Buffer>* out,
+                                int64_t null_count) {
+        Range range(offset_, length_);
         Bitmap bitmap = Bitmap(buffer, range);
 
-        auto length = 8 * bitmap.range.length;
-        auto offset = 8 * bitmap.range.offset;
-        // ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(length, pool_));
-        ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(bitmap.range.length + 1));
+        auto length = bitmap.range.length;
+        auto offset = bitmap.range.offset;
+        ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(length, pool_));
+        // ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(bitmap.range.length + 1, pool_));
         uint8_t* dst = (*out)->mutable_data();
 
         int64_t bitmap_offset = 0;
         if (bitmap.AllSet()) {
+          std::cout << "bitmap.AllSet(): " << null_count << std::endl;
           arrow::BitUtil::SetBitsTo(dst, offset, length, true);
         } else {
+          std::cout << "CopyBitmap: " << std::endl;
           arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, bitmap_offset);
         }
 
@@ -1142,6 +1150,21 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         // }
         return arrow::Status::OK();
       }
+
+      // arrow::Status SliceBitmapNew(const std::shared_ptr<arrow::Buffer>& buffer,
+      //                              std::shared_ptr<arrow::Buffer>* out,
+      //                              int64_t null_count) {
+      //   if (buffer) {
+      //     ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(size * length_, pool_));
+      //     auto out_data = (*out)->mutable_data();
+      //     auto data_begin = buffer->data();
+      //     std::memcpy(out_data, data_begin + size * offset_, size * length_);
+      //   } else {
+      //     arrow::BitUtil::SetBitsTo(dst, offset, length, true);
+      //   }
+      //   return arrow::Status::OK();
+
+      // }
 
       arrow::ArrayData in_;
       arrow::ArrayData out_data_;
@@ -1163,15 +1186,68 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
           .Slice(&out_data);
       std::shared_ptr<arrow::Array> out_0 =
           MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
-      total_offset_ += length;
       *out = arrow::RecordBatch::Make(result_schema_, length, {out_0});
+
+      uint64_t count = 0;
+      while (count < length) {
+        if (result_arr_->IsNull(total_offset_ + count)) {
+          builder_0_->AppendNull();
+        } else {
+          builder_0_->Append(result_arr_->GetView(total_offset_ + count));
+        }
+        count++;
+      }
+      std::shared_ptr<arrow::Array> out_1;
+      RETURN_NOT_OK(builder_0_->Finish(&out_1));
+      builder_0_->Reset();
+
+      if (out_1->null_count() != out_0->null_count()) {
+        std::cout << "out_1->null_count(): " << out_1->null_count() 
+                  << " out_0->null_count(): " << out_0->null_count() << std::endl;
+      }
+      for (int i = 0; i < length; i++) {
+        if (out_1->IsNull(i) != out_0->IsNull(i)) {
+          std::cout << "error: out_1->IsNull(i): "  << out_1->IsNull(i)
+                    << " out_0->IsNull(i): " << out_0->IsNull(i) << std::endl;
+          break;
+        }
+      }
+
+      total_offset_ += length;
       return arrow::Status::OK();
     }
+
+    // arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
+    //   auto length = (total_length_ - total_offset_) > batch_size_
+    //                   ? batch_size_
+    //                   : (total_length_ - total_offset_);
+    //   uint64_t count = 0;
+    //   while (count < length) {
+    //     if (result_arr_->IsNull(total_offset_ + count)) {
+    //       builder_0_->AppendNull();
+    //     } else {
+    //       builder_0_->Append(result_arr_->GetView(total_offset_ + count));
+    //     }
+    //     count++;
+    //   }
+    //   total_offset_ += length;
+
+    //   std::shared_ptr<arrow::Array> out_0;
+    //   RETURN_NOT_OK(builder_0_->Finish(&out_0));
+    //   builder_0_->Reset();
+
+    //   *out = arrow::RecordBatch::Make(result_schema_, length, {out_0});
+    //   return arrow::Status::OK();
+    // }
+
 
    private:
     using ArrayType_0 = typename arrow::TypeTraits<DATATYPE>::ArrayType;
     using BuilderType_0 = typename arrow::TypeTraits<DATATYPE>::BuilderType;
-    std::shared_ptr<arrow::Array> result_arr_;
+    std::shared_ptr<arrow::DataType> data_type_0 =
+        arrow::TypeTraits<DATATYPE>::type_singleton();
+    std::shared_ptr<ArrayType_0> result_arr_;
+    std::shared_ptr<BuilderType_0> builder_0_;
     uint64_t total_offset_ = 0;
     uint64_t valid_offset_ = 0;
     const uint64_t total_length_;
@@ -1753,15 +1829,16 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
 
   if (key_field_list.size() == 1 && result_schema->num_fields() == 1 &&
       key_field_list[0]->type()->id() != arrow::Type::STRING &&
-      key_field_list[0]->type()->id() != arrow::Type::BOOL) {
+      key_field_list[0]->type()->id() != arrow::Type::BOOL &&
+      key_field_list[0]->type()->id() != arrow::Type::DECIMAL128) {
     // Will use SortInplace when sorting for one non-string and non-boolean col
 #ifdef DEBUG
     std::cout << "UseSortInplace" << std::endl;
 #endif
-    if (key_field_list[0]->type()->id() == arrow::Type::DECIMAL128) {
-      impl_.reset(new SortInplaceKernel<arrow::Decimal128Type, arrow::Decimal128>(
-          ctx, result_schema, key_projector, sort_directions, nulls_order, NaN_check));
-    } else {
+    // if (key_field_list[0]->type()->id() == arrow::Type::DECIMAL128) {
+    //   impl_.reset(new SortInplaceKernel<arrow::Decimal128Type, arrow::Decimal128>(
+    //       ctx, result_schema, key_projector, sort_directions, nulls_order, NaN_check));
+    // } else {
       switch (key_field_list[0]->type()->id()) {
 #define PROCESS(InType)                                                               \
   case InType::type_id: {                                                             \
@@ -1776,7 +1853,7 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
                     << key_field_list[0]->type() << std::endl;
         } break;
       }
-    }
+    // }
   } else if (key_field_list.size() == 1 && result_schema->num_fields() >= 1) {
     // Will use SortOnekey when:
     // 1. sorting for one col with payload 2. sorting for one string col or one
