@@ -861,7 +861,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
             return std::isnan(values.GetView(ind));
           });
         }
-        ska_sort(sort_begin, indices_end, 
+        ska_sort(sort_begin, indices_end,
                  [&values](auto& x) -> decltype(auto) { return values.GetView(x); });
         std::reverse(sort_begin, indices_end);
       } else {
@@ -875,7 +875,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
             return std::isnan(values.GetView(ind));
           });
         }
-        ska_sort(sort_begin, sort_end, 
+        ska_sort(sort_begin, sort_end,
                  [&values](auto& x) -> decltype(auto) { return values.GetView(x); });
         std::reverse(sort_begin, sort_end);
       }
@@ -908,14 +908,14 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         auto nulls_end =
             std::partition(indices_begin, indices_end,
                            [&values](uint64_t ind) { return values.IsNull(ind); });
-        ska_sort(nulls_end, indices_end, 
+        ska_sort(nulls_end, indices_end,
                  [&values](auto& x) -> decltype(auto) { return values.GetView(x); });
         std::reverse(nulls_end, indices_end);
       } else {
         auto nulls_begin =
             std::partition(indices_begin, indices_end,
                            [&values](uint64_t ind) { return !values.IsNull(ind); });
-        ska_sort(indices_begin, nulls_begin, 
+        ska_sort(indices_begin, nulls_begin,
                  [&values](auto& x) -> decltype(auto) { return values.GetView(x); });
         std::reverse(indices_begin, nulls_begin);
       }
@@ -931,12 +931,14 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         return values.GetView(left) < values.GetView(right);
       };
       if (nulls_first_) {
-        auto nulls_end = std::partition(indices_begin, indices_end, 
-            [&values](uint64_t ind) { return values.IsNull(ind); });
+        auto nulls_end =
+            std::partition(indices_begin, indices_end,
+                           [&values](uint64_t ind) { return values.IsNull(ind); });
         gfx::timsort(nulls_end, indices_end, comp);
       } else {
-        auto nulls_begin = std::partition(indices_begin, indices_end, 
-            [&values](uint64_t ind) { return !values.IsNull(ind); });
+        auto nulls_begin =
+            std::partition(indices_begin, indices_end,
+                           [&values](uint64_t ind) { return !values.IsNull(ind); });
         gfx::timsort(indices_begin, nulls_begin, comp);
       }
     } else {
@@ -944,12 +946,14 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         return values.GetView(left) > values.GetView(right);
       };
       if (nulls_first_) {
-        auto nulls_end = std::partition(indices_begin, indices_end,
-            [&values](uint64_t ind) { return values.IsNull(ind); });
+        auto nulls_end =
+            std::partition(indices_begin, indices_end,
+                           [&values](uint64_t ind) { return values.IsNull(ind); });
         gfx::timsort(nulls_end, indices_end, comp);
       } else {
-        auto nulls_begin = std::partition(indices_begin, indices_end,
-            [&values](uint64_t ind) { return !values.IsNull(ind); });
+        auto nulls_begin =
+            std::partition(indices_begin, indices_end,
+                           [&values](uint64_t ind) { return !values.IsNull(ind); });
         gfx::timsort(indices_begin, nulls_begin, comp);
       }
     }
@@ -1399,15 +1403,15 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                  [this](auto& x) -> decltype(auto) {
                    return cached_key_[x.array_id]->GetView(x.id);
                  });
-        std::reverse(indices_begin + nulls_total_ + num_nan, 
+        std::reverse(indices_begin + nulls_total_ + num_nan,
                      indices_begin + items_total_);
       } else {
         ska_sort(indices_begin + num_nan, indices_begin + items_total_ - nulls_total_,
                  [this](auto& x) -> decltype(auto) {
                    return cached_key_[x.array_id]->GetView(x.id);
                  });
-        std::reverse(indices_begin + num_nan, 
-                     indices_begin + items_total_ - nulls_total_);         
+        std::reverse(indices_begin + num_nan,
+                     indices_begin + items_total_ - nulls_total_);
       }
     }
   }
