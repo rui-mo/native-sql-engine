@@ -137,7 +137,7 @@ class DatasetSuite extends QueryTest
       1, 1, 1)
   }
 
-  ignore("emptyDataset") {
+  test("emptyDataset") {
     val ds = spark.emptyDataset[Int]
     assert(ds.count() == 0L)
     assert(ds.collect() sameElements Array.empty[Int])
@@ -1545,7 +1545,7 @@ class DatasetSuite extends QueryTest
     checkDataset(ds, WithMapInOption(Some(Map(1 -> 1))))
   }
 
-  ignore("SPARK-20399: do not unescaped regex pattern when ESCAPED_STRING_LITERALS is enabled") {
+  test("SPARK-20399: do not unescaped regex pattern when ESCAPED_STRING_LITERALS is enabled") {
     withSQLConf(SQLConf.ESCAPED_STRING_LITERALS.key -> "true") {
       val data = Seq("\u0020\u0021\u0023", "abc")
       val df = data.toDF()

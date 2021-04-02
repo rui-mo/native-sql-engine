@@ -150,7 +150,7 @@ class SQLConfSuite extends QueryTest with SharedSparkSession {
     assert(conf.get("spark.sql.warehouse.dir") === warehouseDir)
   }
 
-  ignore("reset - public conf") {
+  test("reset - public conf") {
     spark.sessionState.conf.clear()
     val original = spark.conf.get(SQLConf.GROUP_BY_ORDINAL)
     try {
@@ -166,7 +166,7 @@ class SQLConfSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("reset - internal conf") {
+  test("reset - internal conf") {
     spark.sessionState.conf.clear()
     val original = spark.conf.get(SQLConf.OPTIMIZER_MAX_ITERATIONS)
     try {

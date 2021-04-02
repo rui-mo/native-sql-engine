@@ -105,7 +105,7 @@ class DataSourceV2DataFrameSuite
     }
   }
 
-  ignore("saveAsTable: table exists => append by name") {
+  test("saveAsTable: table exists => append by name") {
     withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
       val t1 = "testcat.ns1.ns2.tbl"
       withTable(t1) {

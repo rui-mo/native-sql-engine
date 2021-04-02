@@ -305,7 +305,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("agg without groups and functions") {
+  test("agg without groups and functions") {
     checkAnswer(
       testData2.agg(lit(1)),
       Row(1)
@@ -353,7 +353,7 @@ class DataFrameAggregateSuite extends QueryTest
       Row(2.0, 2.0))
   }
 
-  ignore("zero average") {
+  test("zero average") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(avg($"a")),
@@ -420,7 +420,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("zero count") {
+  test("zero count") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(count($"a"), sumDistinct($"a")), // non-partial
@@ -444,14 +444,14 @@ class DataFrameAggregateSuite extends QueryTest
     Row(null, null, null))
   }
 
-  ignore("zero sum") {
+  test("zero sum") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(sum($"a")),
       Row(null))
   }
 
-  ignore("zero sum distinct") {
+  test("zero sum distinct") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(sumDistinct($"a")),

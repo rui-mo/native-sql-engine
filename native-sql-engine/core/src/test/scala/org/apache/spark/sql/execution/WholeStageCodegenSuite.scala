@@ -157,7 +157,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     assert(dsStringFilter.collect() === Array("1"))
   }
 
-  ignore("SPARK-19512 codegen for comparing structs is incorrect") {
+  test("SPARK-19512 codegen for comparing structs is incorrect") {
     // this would raise CompileException before the fix
     spark.range(10)
       .selectExpr("named_struct('a', id) as col1", "named_struct('a', id+2) as col2")
