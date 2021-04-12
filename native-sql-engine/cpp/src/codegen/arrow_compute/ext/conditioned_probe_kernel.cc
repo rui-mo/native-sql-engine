@@ -1506,9 +1506,59 @@ class ConditionedProbeKernel::Impl {
     (*output)->finish_codes += finish_codes_ss.str();
     return arrow::Status::OK();
   }
-  arrow::Status GetOuterJoin(bool cond_check, std::string index_name,
-                             std::string hash_relation_name,
-                             std::shared_ptr<CodeGenContext>* output) {
+  std::string GetOuterNullRowsMaterializeCodes(
+      std::vector<std::pair<std::pair<std::string, std::string>,
+                            std::shared_ptr<arrow::DataType>>>
+          left_out_list,
+      std::vector<std::pair<std::pair<std::string, std::string>,
+                            std::shared_ptr<arrow::DataType>>>
+          right_out_list,
+      std::vector<int> table_mark_list) {
+    std::vector<int> left_res_idx;
+    std::vector<int> right_res_idx;
+    for (int markIdx = 0; markIdx < table_mark_list.size(); markIdx++) {
+      if (table_mark_list[markIdx] == 0) {
+        left_res_idx.push_back(markIdx);
+      } else {
+        right_res_idx.push_back(markIdx);
+      }
+    }
+    std::stringstream codes_ss;
+    int i = 0;
+    for (auto pair : left_out_list) {
+      codes_ss << "  RETURN_NOT_OK(builder_" << left_res_idx[i] << "_->AppendNull());"
+               << std::endl;
+      i++;
+    }
+    i = 0;
+    for (auto pair : right_out_list) {
+      auto name = pair.first.first;
+      auto type = pair.second;
+      auto validity = name + "_validity";
+      codes_ss << pair.first.second << std::endl;
+      codes_ss << "if (" << validity << ") {" << std::endl;
+      if (type->id() == arrow::Type::STRING) {
+        codes_ss << "  RETURN_NOT_OK(builder_" << right_res_idx[i] << "_->AppendString("
+                 << name << "));" << std::endl;
+      } else {
+        codes_ss << "  RETURN_NOT_OK(builder_" << right_res_idx[i] << "_->Append(" << name
+                 << "));" << std::endl;
+      }
+      codes_ss << "} else {" << std::endl;
+      codes_ss << "  RETURN_NOT_OK(builder_" << right_res_idx[i] << "_->AppendNull());"
+               << std::endl;
+      codes_ss << "}" << std::endl;
+      i++;
+    }
+    return codes_ss.str();
+  }
+  arrow::Status GetOuterJoin(
+      bool cond_check, std::string index_name, std::string hash_relation_name,
+      std::vector<std::pair<std::pair<std::string, std::string>,
+                            std::shared_ptr<arrow::DataType>>>& left_output_list,
+      std::vector<std::pair<std::pair<std::string, std::string>,
+                            std::shared_ptr<arrow::DataType>>>& right_output_list,
+      std::vector<int>& table_mark_list, std::shared_ptr<CodeGenContext>* output) {
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
 
@@ -1537,7 +1587,10 @@ class ConditionedProbeKernel::Impl {
              << "->GetItemListByIndex(" << index_name << ");" << std::endl;
     codes_ss << range_size_name << " = " << item_index_list_name << ".size();"
              << std::endl;
-    codes_ss << "}" << std::endl;
+    codes_ss << "} else {\n" << range_size_name << " = 0;}" << std::endl;
+    if (cond_check) {
+      codes_ss << "bool conditonCheckPass = false;" << std::endl;
+    }
     codes_ss << "for (int " << range_index_name << " = 0; " << range_index_name << " < "
              << range_size_name << "; " << range_index_name << "++) {" << std::endl;
     codes_ss << "if (!" << item_index_list_name << ".empty()) {" << std::endl;
@@ -1551,8 +1604,20 @@ class ConditionedProbeKernel::Impl {
       codes_ss << "if (!" << condition_name << "(" << tmp_name << ", i)) {" << std::endl;
       codes_ss << "  continue;" << std::endl;
       codes_ss << "}" << std::endl;
+      codes_ss << "conditonCheckPass = true;" << std::endl;
     }
-    finish_codes_ss << "} // end of Outer Join" << std::endl;
+    finish_codes_ss << "}" << std::endl;
+    // In outer join, if not found, this row should be added.
+    // If found but null of them passed condition check, this row should also be added.
+    if (cond_check) {
+      finish_codes_ss << "if (" << range_size_name << " == 0 || (" << range_size_name
+                      << " != 0 && !conditonCheckPass)) {" << std::endl;
+    } else {
+      finish_codes_ss << "if (" << range_size_name << " == 0) {" << std::endl;
+    }
+    finish_codes_ss << GetOuterNullRowsMaterializeCodes(
+                           left_output_list, right_output_list, table_mark_list)
+                    << "out_length += 1; \n} // end of Outer Join" << std::endl;
     (*output)->process_codes += codes_ss.str();
     (*output)->finish_codes += finish_codes_ss.str();
     return arrow::Status::OK();
@@ -1766,6 +1831,13 @@ class ConditionedProbeKernel::Impl {
     (*output)->definition_codes += prepare_ss.str();
 
     int right_index_shift = 0;
+    std::vector<
+        std::pair<std::pair<std::string, std::string>, std::shared_ptr<arrow::DataType>>>
+        left_output_list;
+    std::vector<
+        std::pair<std::pair<std::string, std::string>, std::shared_ptr<arrow::DataType>>>
+        right_output_list;
+    std::vector<int> table_mark_list;
     for (auto pair : result_schema_index_list_) {
       // set result to output list
       auto output_name = "hash_relation_" + std::to_string(hash_relation_id_) +
@@ -1792,7 +1864,9 @@ class ConditionedProbeKernel::Impl {
         valid_ss << "if (" << output_validity << ")" << std::endl;
         valid_ss << output_name << " = " << name << "->GetValue(" << tmp_name
                  << ".array_id, " << tmp_name << ".id);" << std::endl;
-
+        table_mark_list.push_back(pair.first);
+        left_output_list.push_back(
+            std::make_pair(std::make_pair(output_name, valid_ss.str()), type));
       } else { /* right table */
         std::string name;
         if (exist_index_ != -1 && exist_index_ == pair.second) {
@@ -1809,6 +1883,9 @@ class ConditionedProbeKernel::Impl {
           valid_ss << input[i].first.second;
           type = input[i].second;
         }
+        table_mark_list.push_back(pair.first);
+        right_output_list.push_back(
+            std::make_pair(std::make_pair(output_name, valid_ss.str()), type));
       }
       (*output)->output_list.push_back(
           std::make_pair(std::make_pair(output_name, valid_ss.str()), type));
@@ -1819,7 +1896,8 @@ class ConditionedProbeKernel::Impl {
         return GetInnerJoin(cond_check, index_name, hash_relation_name, output);
       } break;
       case 1: { /*Outer Join*/
-        return GetOuterJoin(cond_check, index_name, hash_relation_name, output);
+        return GetOuterJoin(cond_check, index_name, hash_relation_name, left_output_list,
+                            right_output_list, table_mark_list, output);
       } break;
       case 2: { /*Anti Join*/
         return GetAntiJoin(cond_check, index_name, hash_relation_name, output);
