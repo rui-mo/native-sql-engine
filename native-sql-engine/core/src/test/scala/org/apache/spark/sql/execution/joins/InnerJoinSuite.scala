@@ -95,11 +95,11 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
   // Note: the input dataframes and expression must be evaluated lazily because
   // the SQLContext should be used only within a test to keep SQL tests stable
   private def testInnerJoin(
-      testName: String,
-      leftRows: => DataFrame,
-      rightRows: => DataFrame,
-      condition: () => Expression,
-      expectedAnswer: Seq[Product]): Unit = {
+                             testName: String,
+                             leftRows: => DataFrame,
+                             rightRows: => DataFrame,
+                             condition: () => Expression,
+                             expectedAnswer: Seq[Product]): Unit = {
 
     def extractJoinParts(): Option[ExtractEquiJoinKeys.ReturnType] = {
       val join = Join(leftRows.logicalPlan, rightRows.logicalPlan,
@@ -108,12 +108,12 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
     }
 
     def makeBroadcastHashJoin(
-        leftKeys: Seq[Expression],
-        rightKeys: Seq[Expression],
-        boundCondition: Option[Expression],
-        leftPlan: SparkPlan,
-        rightPlan: SparkPlan,
-        side: BuildSide) = {
+                               leftKeys: Seq[Expression],
+                               rightKeys: Seq[Expression],
+                               boundCondition: Option[Expression],
+                               leftPlan: SparkPlan,
+                               rightPlan: SparkPlan,
+                               side: BuildSide) = {
       val broadcastJoin = joins.BroadcastHashJoinExec(
         leftKeys,
         rightKeys,
@@ -126,12 +126,12 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
     }
 
     def makeShuffledHashJoin(
-        leftKeys: Seq[Expression],
-        rightKeys: Seq[Expression],
-        boundCondition: Option[Expression],
-        leftPlan: SparkPlan,
-        rightPlan: SparkPlan,
-        side: BuildSide) = {
+                              leftKeys: Seq[Expression],
+                              rightKeys: Seq[Expression],
+                              boundCondition: Option[Expression],
+                              leftPlan: SparkPlan,
+                              rightPlan: SparkPlan,
+                              side: BuildSide) = {
       val shuffledHashJoin = joins.ShuffledHashJoinExec(leftKeys, rightKeys, Inner,
         side, None, leftPlan, rightPlan)
       val filteredJoin =
@@ -140,11 +140,11 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
     }
 
     def makeSortMergeJoin(
-        leftKeys: Seq[Expression],
-        rightKeys: Seq[Expression],
-        boundCondition: Option[Expression],
-        leftPlan: SparkPlan,
-        rightPlan: SparkPlan) = {
+                           leftKeys: Seq[Expression],
+                           rightKeys: Seq[Expression],
+                           boundCondition: Option[Expression],
+                           leftPlan: SparkPlan,
+                           rightPlan: SparkPlan) = {
       val sortMergeJoin = joins.SortMergeJoinExec(leftKeys, rightKeys, Inner, boundCondition,
         leftPlan, rightPlan)
       EnsureRequirements(spark.sessionState.conf).apply(sortMergeJoin)
@@ -174,8 +174,7 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
       }
     }
 
-    // ignored in maven test
-    ignore(s"$testName using ShuffledHashJoin (build=left)") {
+    test(s"$testName using ShuffledHashJoin (build=left)") {
       extractJoinParts().foreach { case (_, leftKeys, rightKeys, boundCondition, _, _, _) =>
         withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
           checkAnswer2(leftRows, rightRows, (leftPlan: SparkPlan, rightPlan: SparkPlan) =>
@@ -187,8 +186,7 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
       }
     }
 
-    // ignored in maven test
-    ignore(s"$testName using ShuffledHashJoin (build=right)") {
+    test(s"$testName using ShuffledHashJoin (build=right)") {
       extractJoinParts().foreach { case (_, leftKeys, rightKeys, boundCondition, _, _, _) =>
         withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
           checkAnswer2(leftRows, rightRows, (leftPlan: SparkPlan, rightPlan: SparkPlan) =>

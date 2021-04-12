@@ -46,7 +46,7 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
       .set("spark.oap.sql.columnar.wholestagecodegen", "true")
       .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      .set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
@@ -124,7 +124,6 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
       ProjectExec(output, FilterExec(condition, join))
     }
 
-    // ignored in maven test
     test(s"$testName using ShuffledHashJoin") {
       extractJoinParts().foreach { case (_, leftKeys, rightKeys, boundCondition, _, _, _) =>
         withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
@@ -163,7 +162,7 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
       }
     }
 
-    test(s"$testName using SortMergeJoin") {
+    ignore(s"$testName using SortMergeJoin") {
       extractJoinParts().foreach { case (_, leftKeys, rightKeys, boundCondition, _, _, _) =>
         withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
           checkAnswer2(leftRows, rightRows, (left: SparkPlan, right: SparkPlan) =>
@@ -214,14 +213,13 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
     }
   }
 
-  /*
-  testExistenceJoin(
-    "test single condition (equal) for left semi join",
-    LeftSemi,
-    left,
-    right,
-    singleConditionEQ,
-    Seq(Row(2, 1.0), Row(2, 1.0), Row(3, 3.0), Row(6, null)))
+//  testExistenceJoin(
+//    "test single condition (equal) for left semi join",
+//    LeftSemi,
+//    left,
+//    right,
+//    singleConditionEQ,
+//    Seq(Row(2, 1.0), Row(2, 1.0), Row(3, 3.0), Row(6, null)))
 
   testExistenceJoin(
     "test composed condition (equal & non-equal) for left semi join",
@@ -278,5 +276,4 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
     rightUniqueKey,
     (left.col("a") === rightUniqueKey.col("c") && left.col("b") < rightUniqueKey.col("d")).expr,
     Seq(Row(1, 2.0), Row(1, 2.0), Row(3, 3.0), Row(null, null), Row(null, 5.0), Row(6, null)))
-   */
 }
