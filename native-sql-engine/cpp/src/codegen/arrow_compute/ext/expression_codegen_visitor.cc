@@ -182,12 +182,18 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     codes_str_ = ss.str();
     header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("not") == 0) {
+    real_codes_str_ = "!" + child_visitor_list[0]->GetResult();
     std::string check_validity;
     if (child_visitor_list[0]->GetPreCheck() != "") {
       check_validity = child_visitor_list[0]->GetPreCheck() + " && ";
     }
-    ss << check_validity << child_visitor_list[0]->GetRealValidity() << " && !"
-       << child_visitor_list[0]->GetRealResult();
+    std::string child_real_validity;
+    if (child_visitor_list[0]->GetRealValidity() != "") {
+      child_real_validity = child_visitor_list[0]->GetRealValidity() + " && ";
+    }
+    // ss << check_validity << child_visitor_list[0]->GetRealValidity() << " && !"
+    //    << child_visitor_list[0]->GetRealResult();
+    ss << check_validity << child_real_validity << real_codes_str_ << std::endl;
     for (int i = 0; i < 1; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
