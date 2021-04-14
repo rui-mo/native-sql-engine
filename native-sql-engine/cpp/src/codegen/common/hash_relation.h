@@ -65,6 +65,9 @@ class TypedHashRelationColumn<DataType, enable_if_number_or_decimal<DataType>>
   }
   arrow::Status AppendColumn(std::shared_ptr<arrow::Array> in) override {
     auto typed_in = std::make_shared<ArrayType>(in);
+    for (int i = 0; i < typed_in->length(); i++) {
+      std::cout << "val: " << typed_in->GetView(i) << std::endl;
+    }
     if (typed_in->null_count() > 0) has_null_ = true;
     array_vector_.push_back(typed_in);
     return arrow::Status::OK();

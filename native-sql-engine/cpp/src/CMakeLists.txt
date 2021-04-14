@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_BUILD_TYPE  "Release")
+set(CMAKE_BUILD_TYPE  "Debug")
 
 set(ARROW_ROOT "/usr/local" CACHE PATH "Arrow Root dir")
 set(ARROW_BFS_INSTALL_DIR "/usr/local" CACHE PATH "Arrow Build from Source dir")

@@ -835,7 +835,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("outer broadcast hash join should not throw NPE") {
+  test("outer broadcast hash join should not throw NPE") {
     withTempView("v1", "v2") {
       withSQLConf(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> "true") {
         Seq(2 -> 2).toDF("x", "y").createTempView("v1")
@@ -969,7 +969,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("SPARK-26352: join reordering should not change the order of columns") {
+  test("SPARK-26352: join reordering should not change the order of columns") {
     withTable("tab1", "tab2", "tab3") {
       spark.sql("select 1 as x, 100 as y").write.saveAsTable("tab1")
       spark.sql("select 42 as i, 200 as j").write.saveAsTable("tab2")
@@ -983,10 +983,15 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("NaN and -0.0 in join keys") {
+  test("NaN and -0.0 in join keys") {
+    val df1 = Seq(Float.NaN -> Double.NaN, 0.0f -> 0.0, -0.0f -> -0.0).toDF("f", "d")
+    val df2 = Seq(Float.NaN -> Double.NaN, 0.0f -> 0.0, -0.0f -> -0.0).toDF("f", "d")
+//    val df1 = Seq(1.0f -> 2.0, 1.0f -> 2.0, 1.0f -> 2.0).toDF("f", "d")
+//    val df2 = Seq(1.0f -> 2.0, 1.0f -> 2.0, 2.0f -> 3.0).toDF("f", "d")
+
     withTempView("v1", "v2", "v3", "v4") {
-      Seq(Float.NaN -> Double.NaN, 0.0f -> 0.0, -0.0f -> -0.0).toDF("f", "d").createTempView("v1")
-      Seq(Float.NaN -> Double.NaN, 0.0f -> 0.0, -0.0f -> -0.0).toDF("f", "d").createTempView("v2")
+      df1.createTempView("v1")
+      df2.createTempView("v2")
 
       checkAnswer(
         sql(
@@ -1043,7 +1048,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("SPARK-28323: PythonUDF should be able to use in join condition") {
+  test("SPARK-28323: PythonUDF should be able to use in join condition") {
     import IntegratedUDFTestUtils._
 
     assume(shouldTestPythonUDFs)
@@ -1067,7 +1072,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     checkAnswer(df, Row(1, 2, 1, 2) :: Nil)
   }
 
-  ignore("SPARK-28345: PythonUDF predicate should be able to pushdown to join") {
+  test("SPARK-28345: PythonUDF predicate should be able to pushdown to join") {
     import IntegratedUDFTestUtils._
 
     assume(shouldTestPythonUDFs)

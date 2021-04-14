@@ -927,6 +927,7 @@ class HashRelationVisitorImpl : public ExprVisitorImpl {
     if (initialized_) {
       return arrow::Status::OK();
     }
+    std::cout << "HashRelationVisitorImpl" << std::endl;
     RETURN_NOT_OK(extra::HashRelationKernel::Make(&p_->ctx_, field_list_, root_node_,
                                                   ret_fields_, &kernel_));
     p_->signature_ = kernel_->GetSignature();
