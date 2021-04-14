@@ -705,6 +705,7 @@ class ConditionedProbeKernel::Impl {
           }
         }
         uint64_t out_length = 0;
+        std::cout << "payloads.size(): " << payloads.size() << std::endl;
         auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
         for (int i = 0; i < key_array->length(); i++) {
           int index;
@@ -716,11 +717,14 @@ class ConditionedProbeKernel::Impl {
               payload_arr->Append(i, &unsafe_key_row);
             }
             index = hash_relation_->Get(typed_key_array->GetView(i), unsafe_key_row);
+            std::cout << "val: " << typed_key_array->GetView(i) << std::endl;
           }
           if (index == -1) {
+            std::cout << "index == -1" << std::endl;
             continue;
           }
           auto index_list = hash_relation_->GetItemListByIndex(index);
+          std::cout << "size: " << index_list.size() << std::endl;
           for (auto appender : appender_list_) {
             if (appender->GetType() == AppenderBase::left) {
               THROW_NOT_OK(appender->Append(index_list));
