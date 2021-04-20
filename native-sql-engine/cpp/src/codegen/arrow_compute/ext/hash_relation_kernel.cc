@@ -148,7 +148,6 @@ class HashRelationKernel::Impl {
   ~Impl() {}
 
   arrow::Status Evaluate(const ArrayList& in) {
-    std::cout << "Evaluate(const ArrayList& in)" << std::endl;
     if (in.size() > 0) num_total_cached_ += in[0]->length();
     for (int i = 0; i < in.size(); i++) {
       RETURN_NOT_OK(hash_relation_->AppendPayloadColumn(i, in[i]));
@@ -176,7 +175,6 @@ class HashRelationKernel::Impl {
       RETURN_NOT_OK(key_prepare_projector_->Evaluate(*in_batch, ctx_->memory_pool(),
                                                      &project_outputs));
       keys_cached_.push_back(project_outputs);
-      std::cout << "start" << std::endl;
       /* Process key Hash projection */
       arrow::ArrayVector hash_outputs;
       auto hash_in_batch =
@@ -309,7 +307,6 @@ class HashRelationKernel::Impl {
     arrow::Status ProcessAndCacheOne(
         const std::vector<std::shared_ptr<arrow::Array>>& in,
         const std::shared_ptr<arrow::Array>& selection = nullptr) override {
-      std::cout << "process and cache" << std::endl;
       for (int i = 0; i < in.size(); i++) {
         RETURN_NOT_OK(hash_relation_->AppendPayloadColumn(i, in[i]));
       }

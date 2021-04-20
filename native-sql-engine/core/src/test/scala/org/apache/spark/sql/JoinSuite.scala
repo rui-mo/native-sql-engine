@@ -984,14 +984,9 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
   }
 
   test("NaN and -0.0 in join keys") {
-    val df1 = Seq(Float.NaN -> Double.NaN, 0.0f -> 0.0, -0.0f -> -0.0).toDF("f", "d")
-    val df2 = Seq(Float.NaN -> Double.NaN, 0.0f -> 0.0, -0.0f -> -0.0).toDF("f", "d")
-//    val df1 = Seq(1.0f -> 2.0, 1.0f -> 2.0, 1.0f -> 2.0).toDF("f", "d")
-//    val df2 = Seq(1.0f -> 2.0, 1.0f -> 2.0, 2.0f -> 3.0).toDF("f", "d")
-
     withTempView("v1", "v2", "v3", "v4") {
-      df1.createTempView("v1")
-      df2.createTempView("v2")
+      Seq(Float.NaN -> Double.NaN, 0.0f -> 0.0, -0.0f -> -0.0).toDF("f", "d").createTempView("v1")
+      Seq(Float.NaN -> Double.NaN, 0.0f -> 0.0, -0.0f -> -0.0).toDF("f", "d").createTempView("v2")
 
       checkAnswer(
         sql(

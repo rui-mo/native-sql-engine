@@ -29,6 +29,7 @@ struct CodeGenContext {
   std::string unsafe_row_prepare_codes;
   std::string process_codes;
   std::string finish_codes;
+  std::string null_rows_materialize_codes;
   std::string definition_codes;
   std::string aggregate_prepare_codes;
   std::string aggregate_finish_condition_codes;
