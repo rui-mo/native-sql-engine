@@ -491,6 +491,7 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
                  << ", start_" << ctx_idx << ");" << std::endl;
       }
     }
+    codes_ss << codegen_ctx_list.back()->null_rows_materialize_codes << std::endl;
     codes_ss << "} // end of for loop" << std::endl;
     if (is_aggr_ && !is_smj_) {
       codes_ss << "return arrow::Status::OK();" << std::endl;

@@ -705,7 +705,6 @@ class ConditionedProbeKernel::Impl {
           }
         }
         uint64_t out_length = 0;
-        std::cout << "payloads.size(): " << payloads.size() << std::endl;
         auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
         for (int i = 0; i < key_array->length(); i++) {
           int index;
@@ -717,14 +716,11 @@ class ConditionedProbeKernel::Impl {
               payload_arr->Append(i, &unsafe_key_row);
             }
             index = hash_relation_->Get(typed_key_array->GetView(i), unsafe_key_row);
-            std::cout << "val: " << typed_key_array->GetView(i) << std::endl;
           }
           if (index == -1) {
-            std::cout << "index == -1" << std::endl;
             continue;
           }
           auto index_list = hash_relation_->GetItemListByIndex(index);
-          std::cout << "size: " << index_list.size() << std::endl;
           for (auto appender : appender_list_) {
             if (appender->GetType() == AppenderBase::left) {
               THROW_NOT_OK(appender->Append(index_list));
@@ -1565,6 +1561,7 @@ class ConditionedProbeKernel::Impl {
       std::vector<int>& table_mark_list, std::shared_ptr<CodeGenContext>* output) {
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
+    std::stringstream null_materialize_ss;
 
     auto tmp_name = "tmp_" + std::to_string(hash_relation_id_);
     auto is_outer_null_name = "is_outer_null_" + std::to_string(hash_relation_id_);
@@ -1614,14 +1611,15 @@ class ConditionedProbeKernel::Impl {
     // In outer join, if not found, this row should be added.
     // If found but null of them passed condition check, this row should also be added.
     if (cond_check) {
-      finish_codes_ss << "if (" << range_size_name << " == 0 || (" << range_size_name
-                      << " != 0 && !conditonCheckPass)) {" << std::endl;
+      null_materialize_ss << "if (" << range_size_name << " == 0 || (" << range_size_name 
+          << " != 0 && !conditonCheckPass)) {" << std::endl;
     } else {
-      finish_codes_ss << "if (" << range_size_name << " == 0) {" << std::endl;
+      null_materialize_ss << "if (" << range_size_name << " == 0) {" << std::endl;
     }
-    finish_codes_ss << GetOuterNullRowsMaterializeCodes(
+    null_materialize_ss << GetOuterNullRowsMaterializeCodes(
                            left_output_list, right_output_list, table_mark_list)
                     << "out_length += 1; \n} // end of Outer Join" << std::endl;
+    (*output)->null_rows_materialize_codes += null_materialize_ss.str();
     (*output)->process_codes += codes_ss.str();
     (*output)->finish_codes += finish_codes_ss.str();
     return arrow::Status::OK();
