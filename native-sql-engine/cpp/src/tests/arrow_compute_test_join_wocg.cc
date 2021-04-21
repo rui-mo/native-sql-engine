@@ -1121,13 +1121,9 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinNaN) {
       "normalize", {TreeExprBuilder::MakeField(table1_f1)}, float64());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema",
-      {n_left_key_func_0, n_left_key_func_1},
-      uint32());
+      "codegen_left_key_schema", {n_left_key_func_0, n_left_key_func_1}, uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema",
-      {n_right_key_func_0, n_right_key_func_1},
-      uint32());
+      "codegen_right_key_schema", {n_right_key_func_0, n_right_key_func_1}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "result",
       {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
@@ -1144,8 +1140,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinNaN) {
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
-  auto schema_table =
-      arrow::schema({table0_f0, table0_f1, table1_f0, table1_f1});
+  auto schema_table = arrow::schema({table0_f0, table0_f1, table1_f0, table1_f1});
 
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
@@ -1156,9 +1151,9 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinNaN) {
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(
-      ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-      {table0_f0, table0_f1, table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
+                                    {table0_f0, table0_f1, table1_f0, table1_f1},
+                                    &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -1167,17 +1162,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinNaN) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {
-      "[NaN, 0.0, -0.0]",
-      "[NaN, 0.0, -0.0]"
-      };
+  std::vector<std::string> input_data_string = {"[NaN, 0.0, -0.0]", "[NaN, 0.0, -0.0]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {
-      "[NaN, 0.0, -0.0]",
-      "[NaN, 0.0, -0.0]"
-      };
+  std::vector<std::string> input_data_2_string = {"[NaN, 0.0, -0.0]", "[NaN, 0.0, -0.0]"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -1186,10 +1175,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinNaN) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[NaN, 0.0, 0.0, -0.0, -0.0]",
-      "[NaN, 0.0, 0.0, -0.0, -0.0]",
-      "[NaN, 0.0, 0.0, -0.0, -0.0]",
-      "[NaN, 0.0, 0.0, -0.0, -0.0]"};
+      "[NaN, 0.0, 0.0, -0.0, -0.0]", "[NaN, 0.0, 0.0, -0.0, -0.0]",
+      "[NaN, 0.0, 0.0, -0.0, -0.0]", "[NaN, 0.0, 0.0, -0.0, -0.0]"};
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 

@@ -1563,15 +1563,13 @@ TEST(TestArrowComputeWSCG, WSCGTestSemiJoinWithCondition2) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {
-      "[2, 2, 3, 4, null, null, 6]",
-      "[3, 3, 2, 1, null, 5, null]"};
+  std::vector<std::string> input_data_string = {"[2, 2, 3, 4, null, null, 6]",
+                                                "[3, 3, 2, 1, null, 5, null]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {
-      "[1, 1, 2, 2, 3, null, null, 6]",
-      "[2, 2, 1, 1, 3, null, 5, null]"};
+  std::vector<std::string> input_data_2_string = {"[1, 1, 2, 2, 3, null, null, 6]",
+                                                  "[2, 2, 1, 1, 3, null, 5, null]"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -1580,9 +1578,7 @@ TEST(TestArrowComputeWSCG, WSCGTestSemiJoinWithCondition2) {
   auto res_sch = arrow::schema({table1_f0, table1_f1});
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {
-      "[2, 2]",
-      "[1, 1]"};
+  std::vector<std::string> expected_result_string = {"[2, 2]", "[1, 1]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 

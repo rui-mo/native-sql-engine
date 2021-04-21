@@ -1611,14 +1611,14 @@ class ConditionedProbeKernel::Impl {
     // In outer join, if not found, this row should be added.
     // If found but null of them passed condition check, this row should also be added.
     if (cond_check) {
-      null_materialize_ss << "if (" << range_size_name << " == 0 || (" << range_size_name 
-          << " != 0 && !conditonCheckPass)) {" << std::endl;
+      null_materialize_ss << "if (" << range_size_name << " == 0 || (" << range_size_name
+                          << " != 0 && !conditonCheckPass)) {" << std::endl;
     } else {
       null_materialize_ss << "if (" << range_size_name << " == 0) {" << std::endl;
     }
     null_materialize_ss << GetOuterNullRowsMaterializeCodes(
-                           left_output_list, right_output_list, table_mark_list)
-                    << "out_length += 1; \n} // end of Outer Join" << std::endl;
+                               left_output_list, right_output_list, table_mark_list)
+                        << "out_length += 1; \n} // end of Outer Join" << std::endl;
     (*output)->null_rows_materialize_codes += null_materialize_ss.str();
     (*output)->process_codes += codes_ss.str();
     (*output)->finish_codes += finish_codes_ss.str();
