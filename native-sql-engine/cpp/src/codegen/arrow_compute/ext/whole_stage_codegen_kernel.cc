@@ -484,6 +484,9 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     for (int ctx_idx = codegen_ctx_list.size() - 1; ctx_idx >= 0; ctx_idx--) {
       auto codegen_ctx = codegen_ctx_list[ctx_idx];
       codes_ss << codegen_ctx->finish_codes << std::endl;
+      if (!is_aggr_) {
+        codes_ss << codegen_ctx->null_rows_materialize_codes << std::endl;
+      }
       if (enable_time_metrics_) {
         codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &end_" << ctx_idx << ");"
                  << std::endl;
@@ -491,7 +494,6 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
                  << ", start_" << ctx_idx << ");" << std::endl;
       }
     }
-    codes_ss << codegen_ctx_list.back()->null_rows_materialize_codes << std::endl;
     codes_ss << "} // end of for loop" << std::endl;
     if (is_aggr_ && !is_smj_) {
       codes_ss << "return arrow::Status::OK();" << std::endl;

@@ -1175,7 +1175,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinNaN) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[NaN, 0.0, 0.0, -0.0, -0.0]", "[NaN, 0.0, 0.0, -0.0, -0.0]",
+      "[NaN, 0.0, -0.0, 0.0, -0.0]", "[NaN, 0.0, -0.0, 0.0, -0.0]",
       "[NaN, 0.0, 0.0, -0.0, -0.0]", "[NaN, 0.0, 0.0, -0.0, -0.0]"};
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
