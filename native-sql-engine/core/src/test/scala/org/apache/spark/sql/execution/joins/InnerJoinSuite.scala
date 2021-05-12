@@ -171,8 +171,7 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
       }
     }
 
-    // ignored in maven test
-    ignore(s"$testName using ShuffledHashJoin (build=left)") {
+    test(s"$testName using ShuffledHashJoin (build=left)") {
       extractJoinParts().foreach { case (_, leftKeys, rightKeys, boundCondition, _, _, _) =>
         withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
           checkAnswer2(leftRows, rightRows, (leftPlan: SparkPlan, rightPlan: SparkPlan) =>
@@ -184,8 +183,7 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
       }
     }
 
-    // ignored in maven test
-    ignore(s"$testName using ShuffledHashJoin (build=right)") {
+    test(s"$testName using ShuffledHashJoin (build=right)") {
       extractJoinParts().foreach { case (_, leftKeys, rightKeys, boundCondition, _, _, _) =>
         withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
           checkAnswer2(leftRows, rightRows, (leftPlan: SparkPlan, rightPlan: SparkPlan) =>
