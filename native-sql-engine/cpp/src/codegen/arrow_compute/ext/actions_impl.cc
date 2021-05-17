@@ -1359,8 +1359,6 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  int RequiredColNum() { return 1; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -1516,8 +1514,6 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     std::cout << "Destruct SumActionPartial" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 1; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,

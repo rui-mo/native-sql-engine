@@ -608,8 +608,10 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         if (result_field_list[result_id]->id() == arrow::Decimal128Type::type_id) {
           result_id += 2;
+          std::cout << "result_id += 2" << std::endl;
         } else {
           result_id += 1;
+          std::cout << "result_id += 1" << std::endl;
         }
         RETURN_NOT_OK(
             MakeSumActionPartial(ctx_, action_input_type, res_type_list, &action));
