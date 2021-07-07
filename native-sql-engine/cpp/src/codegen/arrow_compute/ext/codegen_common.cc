@@ -278,6 +278,18 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
   }
 }
 
+bool StrCmpCaseInsensitive(const std::string& str1, const std::string& str2) {
+  auto left_str = str1;
+  auto right_str = str2;
+  std::transform(left_str.begin(), left_str.end(), left_str.begin(), ::toupper);
+  std::transform(right_str.begin(), right_str.end(), right_str.begin(), ::toupper);
+  if (left_str == right_str) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 std::string GetParameterList(std::vector<std::string> parameter_list_in, bool comma_ahead,
                              std::string split) {
   std::vector<std::string> parameter_list;
@@ -430,7 +442,7 @@ arrow::Status GetIndexList(const std::vector<std::shared_ptr<arrow::Field>>& tar
     int i = 0;
     found = false;
     for (auto field : source_list) {
-      if (key_field->name() == field->name()) {
+      if (StrCmpCaseInsensitive(key_field->name(), field->name())) {
         found = true;
         break;
       }
@@ -457,7 +469,7 @@ arrow::Status GetIndexList(
     i = 0;
     found = false;
     for (auto field : left_field_list) {
-      if (target_field->name() == field->name()) {
+      if (StrCmpCaseInsensitive(target_field->name(), field->name())) {
         (*result_schema_index_list).push_back(std::make_pair(0, i));
         found = true;
         break;
@@ -467,7 +479,7 @@ arrow::Status GetIndexList(
     if (found == true) continue;
     i = 0;
     for (auto field : right_field_list) {
-      if (target_field->name() == field->name()) {
+      if (StrCmpCaseInsensitive(target_field->name(), field->name())) {
         (*result_schema_index_list).push_back(std::make_pair(1, i));
         found = true;
         right_found++;
@@ -485,13 +497,24 @@ arrow::Status GetIndexList(
   return arrow::Status::OK();
 }
 
+std::vector<int> GetIndicesFromSchemaCaseInsensitive(
+    const std::shared_ptr<arrow::Schema>& result_schema, std::string field_name) {
+  std::transform(field_name.begin(), field_name.end(), field_name.begin(), ::toupper);
+  auto indices = result_schema->GetAllFieldIndices(field_name);
+  if (indices.size() == 0) {
+    std::transform(field_name.begin(), field_name.end(), field_name.begin(), ::tolower);
+    indices = result_schema->GetAllFieldIndices(field_name);
+  }
+  return indices;
+}
+
 arrow::Status GetIndexListFromSchema(
     const std::shared_ptr<arrow::Schema>& result_schema,
     const std::vector<std::shared_ptr<arrow::Field>>& field_list,
     std::vector<int>* index_list) {
   int i = 0;
   for (auto field : field_list) {
-    auto indices = result_schema->GetAllFieldIndices(field->name());
+    auto indices = GetIndicesFromSchemaCaseInsensitive(result_schema, field->name());
     if (indices.size() >= 1) {
       (*index_list).push_back(i);
     }
