@@ -246,7 +246,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
       Row(null, 1, null) :: Row(1, null, 1) :: Nil)
   }
 
-  test("pivot with null and aggregate type not supported by PivotFirst returns correct result") {
+  ignore("pivot with null and aggregate type not supported by PivotFirst returns correct result") {
     checkAnswer(
       Seq(Tuple1(None), Tuple1(Some(1))).toDF("a")
         .withColumn("b", expr("array(a, 7)"))
