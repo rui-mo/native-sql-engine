@@ -90,13 +90,14 @@ trait SharedSparkSessionBase
       .set("spark.memory.offHeap.size", "10g")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      // .set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      .set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.sql.parquet.enableVectorizedReader", "false")
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
       .set("spark.oap.sql.columnar.batchscan", "false")
       .set("spark.sql.session.timeZone", zoneID)
+      .setMaster("local[1]")
     conf.set(
       StaticSQLConf.WAREHOUSE_PATH,
       conf.get(StaticSQLConf.WAREHOUSE_PATH) + "/" + getClass.getCanonicalName)

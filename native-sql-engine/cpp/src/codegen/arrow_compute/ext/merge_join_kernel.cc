@@ -591,9 +591,7 @@ class ConditionedJoinArraysKernel::Impl {
   int64_t cur_idx, seg_len, pl; left_it->getpos(&cur_idx, &seg_len, &pl);
   while(left_it->hasnext() && left_it->value() == right_content) {
     auto tmp = GetArrayItemIdex(left_it);
-          )" +  // TODO: cond check
-           left_valid_ss.str() +
-           right_valid_ss.str() + R"(
+          )" +  shuffle_str + R"(
           left_it->next();
           last_match_idx = i;
           out_length += 1;
@@ -1253,6 +1251,7 @@ typedef )" + item_content_str +
                                 &left_cond_index_list, &right_cond_index_list);
       cond_check = true;
     }
+    std::cout << "GetProcessProbe: " << cond_check << std::endl;
     auto process_probe_str =
         GetProcessProbe(join_type, cond_check, left_shuffle_index_list,
                         right_shuffle_index_list, right_key_index_list);

@@ -170,6 +170,7 @@ class ColumnarSorter(
         val beforeShuffle = System.nanoTime()
         nextBatch = sort_iterator.next()
         resultCb = getSorterResult(nextBatch)
+        ConverterUtils.printBatch(resultCb)
         shuffle_elapse += System.nanoTime() - beforeShuffle
         total_elapse += System.nanoTime() - beforeShuffle
         outputBatches += 1

@@ -424,6 +424,7 @@ case class ColumnarSortMergeJoinExec(
     val signature = getCodeGenSignature
     val listJars = uploadAndListJars(signature)
     right.executeColumnar().zipPartitions(left.executeColumnar()) { (streamIter, buildIter) =>
+//    left.executeColumnar().zipPartitions(right.executeColumnar()) { (streamIter, buildIter) =>
       ColumnarPluginConfig.getConf
       val execTempDir = ColumnarPluginConfig.getTempFile
       val jarList = listJars.map(jarUrl => {
